@@ -1,4 +1,4 @@
 CC = gcc
 
-kilo: kilo.c
-	$(CC) kilo.c -o kilo -Wall -Wextra -pedantic -std=c99
+edit: edit.c
+	$(CC) edit.c -o edit -Wall -Wextra -pedantic -std=c99
