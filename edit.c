@@ -24,7 +24,12 @@ enum editorKey {
     LEFT = 1000,
     DOWN,
     UP,
-    RIGHT
+    RIGHT,
+    DELETE,
+    HOME,
+    END,
+    PAGE_UP,
+    PAGE_DOWN,
 };
 
 /*** data ***/
@@ -138,6 +143,7 @@ int editorReadKey() {
         }
     }
 
+    // Read escape sequence
     if (c == '\x1b') {
         char seq[3];
 
@@ -146,11 +152,36 @@ int editorReadKey() {
         }
 
         if (seq[0] == '[') {
+            if (seq[1] >= '0' && seq[1] <= '9') {
+                if (read(STDIN_FILENO, &seq[2], 1) != 1) {
+                    return '\x1b';
+                }
+
+                if (seq[2] == '~') {
+                    switch (seq[1]) {
+                        case '1': return HOME;
+                        case '3': return DELETE;
+                        case '4': return END;
+                        case '5': return PAGE_UP;
+                        case '6': return PAGE_DOWN;
+                        case '7': return HOME;
+                        case '8': return END;
+                    }
+                }
+            } else {
+                switch (seq[1]) {
+                    case 'A': return UP;
+                    case 'B': return DOWN;
+                    case 'C': return RIGHT;
+                    case 'D': return LEFT;
+                    case 'H': return HOME;
+                    case 'F': return END;
+                }
+            }
+        } else if (seq[0] == 'O') {
             switch (seq[1]) {
-                case 'A': return UP;
-                case 'B': return DOWN;
-                case 'C': return RIGHT;
-                case 'D': return LEFT;
+                case 'H': return HOME;
+                case 'F': return END;
             }
         }
 
@@ -340,10 +371,30 @@ void editorProcessKeypress() {
     int c = editorReadKey();
 
     switch (c) {
+        // Quit on C-x
         case CTRL_KEY('x'):
             clearScreen();
             exit(0);
             break;
+        // Move to start of line
+        case HOME:
+            E.cx = 0;
+            break;
+        // Move to end of line
+        case END:
+            E.cx = E.screencols - 1;
+            break;
+        // Move to top or bottom of screen with PAGE_UP, PAGE_DOWN
+        case PAGE_UP:
+        case PAGE_DOWN:
+            {
+                int times = E.screenrows;
+                while (times--) {
+                    editorMoveCursor(c == PAGE_UP ? UP : DOWN);
+                }
+            }
+            break;
+        // Move 1 position with arrows
         case LEFT:
         case DOWN:
         case UP:
