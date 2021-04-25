@@ -11,8 +11,21 @@
 
 /*** defines ***/
 
+#define VERSION "0.0.1"
+
 /* Get Ctrl key code by setting the upper 3 bits to 0 */
 #define CTRL_KEY(k) ((k) & 0x1f)
+
+enum editorKey {
+    //LEFT = 'h',
+    //DOWN = 'j',
+    //UP = 'k',
+    //RIGHT = 'l'
+    LEFT = 1000,
+    DOWN,
+    UP,
+    RIGHT
+};
 
 /*** data ***/
 
@@ -20,6 +33,10 @@
  * Struct for storing information about the editor
  */
 struct editorConfig {
+    // Cursor x position
+    int cx;
+    // Cursor y position
+    int cy;
     // terminal number of rows
     int screenrows;
     // terminal number of columns
@@ -111,7 +128,7 @@ void enableRawMode() {
 /*
  * Continuously attempt to read and return input
  */
-char editorReadKey() {
+int editorReadKey() {
     int nread;
     char c;
 
@@ -121,7 +138,26 @@ char editorReadKey() {
         }
     }
 
-    return c;
+    if (c == '\x1b') {
+        char seq[3];
+
+        if (read(STDIN_FILENO, &seq[0], 1) != 1 || read(STDIN_FILENO, &seq[1], 1) != 1) {
+            return '\x1b';
+        }
+
+        if (seq[0] == '[') {
+            switch (seq[1]) {
+                case 'A': return UP;
+                case 'B': return DOWN;
+                case 'C': return RIGHT;
+                case 'D': return LEFT;
+            }
+        }
+
+        return '\x1b';
+    } else {
+        return c;
+    }
 }
 
 /*
@@ -219,7 +255,28 @@ void abFree(struct abuf *ab) {
  */
 void editorDrawRows(struct abuf *ab) {
     for (int y = 0; y < E.screenrows; y++) {
-        abAppend(ab, "~", 1);
+        if (y == E.screenrows / 3) {
+            // Draw welcome message
+            char welcome[80];
+            int welcomelen = snprintf(welcome, sizeof(welcome), "\x1b[4mLeon's editor -- version %s\x1b[m", VERSION);
+            if (welcomelen > E.screencols) {
+                welcomelen = E.screencols;
+            }
+
+            int padding = (E.screencols - welcomelen) / 2;
+            if (padding) {
+                abAppend(ab, "~", 1);
+                padding--;
+            }
+
+            while (padding--) {
+                abAppend(ab, " ", 1);
+            }
+
+            abAppend(ab, welcome, welcomelen);
+        } else {
+            abAppend(ab, "~", 1);
+        }
 
         // Erase in line escape sequence
         abAppend(ab, "\x1b[K", 3);
@@ -245,8 +302,11 @@ void editorRefreshScreen() {
 
     editorDrawRows(&ab);
 
-    // write 3 byte escape sequence to position the cursor in the top left
-    abAppend(&ab, "\x1b[H", 3);
+    // Draw cursor in correct position
+    char buf[32];
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy + 1, E.cx + 1);
+    abAppend(&ab, buf, strlen(buf));
+
     // show cursor after refeshing the screen
     abAppend(&ab, "\x1b[?25h", 6);
 
@@ -256,16 +316,39 @@ void editorRefreshScreen() {
 
 /*** input ***/
 
+void editorMoveCursor(int key) {
+    switch (key) {
+        case LEFT:
+            if (E.cx != 0) E.cx--;
+            break;
+        case DOWN:
+            if (E.cy != E.screenrows - 1) E.cy++;
+            break;
+        case UP:
+            if (E.cy != 0) E.cy--;
+            break;
+        case RIGHT:
+            if (E.cx != E.screencols - 1) E.cx++;
+            break;
+    }
+}
+
 /*
  * Read input and decide what to do with it
  */
 void editorProcessKeypress() {
-    char c = editorReadKey();
+    int c = editorReadKey();
 
     switch (c) {
         case CTRL_KEY('x'):
             clearScreen();
             exit(0);
+            break;
+        case LEFT:
+        case DOWN:
+        case UP:
+        case RIGHT:
+            editorMoveCursor(c);
             break;
     }
 }
@@ -276,6 +359,11 @@ void editorProcessKeypress() {
  * Initialize editor
  */
 void initEditor() {
+    // Set cursor position
+    E.cx = 0;
+    E.cy = 0;
+
+    // Get window size
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) {
         die("getWindowSize");
     }
