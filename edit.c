@@ -3,20 +3,52 @@
 #include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
+#include <string.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <stdlib.h>
 #include <stdio.h>
 
+/*** defines ***/
+
+/* Get Ctrl key code by setting the upper 3 bits to 0 */
+#define CTRL_KEY(k) ((k) & 0x1f)
+
 /*** data ***/
 
-struct termios orig_termios;
+/*
+ * Struct for storing information about the editor
+ */
+struct editorConfig {
+    // terminal number of rows
+    int screenrows;
+    // terminal number of columns
+    int screencols;
+
+    // Original terminal state
+    struct termios orig_termios;
+};
+
+struct editorConfig E;
+
 
 /*** terminal ***/
 
 /*
- * Error handling: prints error and exits
+ * Clears screen and puts cursor topleft
+ */
+void clearScreen() {
+    // write 4 byte escape sequence to clear the screen
+    write(STDERR_FILENO, "\x1b[2J", 4);
+    // write 3 byte escape sequence to position the cursor in the top left
+    write(STDERR_FILENO, "\x1b[H", 3);
+}
+
+/*
+ * Error handling: clears screen, prints error and exits
  */
 void die(const char *s) {
+    clearScreen();
     perror(s);
     exit(1);
 }
@@ -25,7 +57,7 @@ void die(const char *s) {
  * Disable raw mode by setting back saved termios struct
  */
 void disableRawMode() {
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1) {
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1) {
         die("tcsetattr");
     }
 }
@@ -35,13 +67,13 @@ void disableRawMode() {
  */
 void enableRawMode() {
     // Store current terminal attributes in raw
-    if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) {
+    if (tcgetattr(STDIN_FILENO, &E.orig_termios) == -1) {
         die("tcgetattr");
     }
 
     atexit(disableRawMode);
 
-    struct termios raw = orig_termios;
+    struct termios raw = E.orig_termios;
 
     /*
     Turn off flags:
@@ -76,25 +108,186 @@ void enableRawMode() {
     }
 }
 
+/*
+ * Continuously attempt to read and return input
+ */
+char editorReadKey() {
+    int nread;
+    char c;
+
+    while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
+        if (nread == -1 && errno != EAGAIN) {
+            die("read");
+        }
+    }
+
+    return c;
+}
+
+/*
+ * Get the cursor position
+ */
+int getCursorPosition(int *rows, int *cols) {
+    char buf[32];
+    unsigned int i = 0;
+
+    // Use n to get the terminal status information, 6n means cursor position
+    // we write it to STDOUT
+    if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4) {
+        return -1;
+    }
+
+    // Read cursor position escape sequence into buffer
+    while (i < sizeof(buf) - 1) {
+        if (read(STDIN_FILENO, &buf[i], 1) != 1) {
+            break;
+        }
+
+        if (buf[i] == 'R') {
+            break;
+        }
+
+        i++;
+    }
+
+    // Terminate string
+    buf[i] = '\0';
+
+    // Check if we got an escape sequence, if so, attempt to store it in rows, cols
+    if (buf[0] != '\x1b' || buf[1] != '[' || sscanf(&buf[2], "%d;%d", rows, cols) != 2) {
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * Use ioctl to get the size of the terminal window
+ */
+int getWindowSize(int *rows, int *cols) {
+    struct winsize ws;
+
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+        // If TIOCGWINSZ fails, manually get size of screen by moving very far to the right (C)
+        // and very far to the bottom (B)
+        if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) {
+            return -1;
+        }
+        return getCursorPosition(rows, cols);
+    } else {
+        *cols = ws.ws_col;
+        *rows = ws.ws_row;
+        return 0;
+    }
+}
+
+/*** append buffer ***/
+
+struct abuf {
+    char *b;
+    int len;
+};
+
+#define ABUF_INIT {NULL, 0}
+
+/*
+ * Append to buffer
+ */
+void abAppend(struct abuf *ab, const char *s, int len) {
+    char *new = realloc(ab->b, ab->len + len);
+
+    if (new == NULL) {
+        return;
+    }
+
+    memcpy(&new [ab->len], s, len);
+    ab->b = new;
+    ab->len += len;
+}
+
+/*
+ * Free buffer
+ */
+void abFree(struct abuf *ab) {
+    free(ab->b);
+}
+
+/*** output ***/
+
+/*
+ * Draw column of tiles on left side of screen
+ */
+void editorDrawRows(struct abuf *ab) {
+    for (int y = 0; y < E.screenrows; y++) {
+        abAppend(ab, "~", 1);
+
+        // Erase in line escape sequence
+        abAppend(ab, "\x1b[K", 3);
+
+        // Only draw newline when we're not at the last line (to prevent scroll)
+        if (y < E.screenrows - 1) {
+            abAppend(ab, "\r\n", 2);
+        }
+    }
+}
+
+/*
+ * Clear the screen
+ * (see https://vt100.net/docs/vt100-ug/chapter3.html0 for VT100 escape sequences)
+ */
+void editorRefreshScreen() {
+    struct abuf ab = ABUF_INIT;
+
+    // Hide cursor before refeshing the screen
+    abAppend(&ab, "\x1b[?25l", 6);
+    // write 3 byte escape sequence to position the cursor in the top left
+    abAppend(&ab, "\x1b[H", 3);
+
+    editorDrawRows(&ab);
+
+    // write 3 byte escape sequence to position the cursor in the top left
+    abAppend(&ab, "\x1b[H", 3);
+    // show cursor after refeshing the screen
+    abAppend(&ab, "\x1b[?25h", 6);
+
+    write(STDOUT_FILENO, ab.b, ab.len);
+    abFree(&ab);
+}
+
+/*** input ***/
+
+/*
+ * Read input and decide what to do with it
+ */
+void editorProcessKeypress() {
+    char c = editorReadKey();
+
+    switch (c) {
+        case CTRL_KEY('x'):
+            clearScreen();
+            exit(0);
+            break;
+    }
+}
+
 /*** init ***/
+
+/*
+ * Initialize editor
+ */
+void initEditor() {
+    if (getWindowSize(&E.screenrows, &E.screencols) == -1) {
+        die("getWindowSize");
+    }
+}
 
 int main() {
     enableRawMode();
+    initEditor();
 
     while (1) {
-        char c = '\0';
-
-        if (read(STDIN_FILENO, &c, 1) == -1 && errno != EAGAIN) {
-            die("read");
-        }
-
-        if (iscntrl(c)) {
-            printf("%d\r\n", c);
-        } else {
-            printf("%d ('%c')\r\n", c, c);
-        }
-
-        if (c == 'q') break;
+        editorRefreshScreen();
+        editorProcessKeypress();
     }
 
     return 0;
