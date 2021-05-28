@@ -15,6 +15,7 @@
 #include <termios.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 /*** defines ***/
 
@@ -56,6 +57,7 @@ struct editorConfig {
     int cy;
     // Scroll position
     int row_offset;
+    int col_offset;
     // terminal number of rows
     int screenrows;
     // terminal number of columns
@@ -65,6 +67,11 @@ struct editorConfig {
     int numrows;
     // Pointer to rows
     erow *row;
+
+    // Saved cursor x position for pleasant scrolling (Vim style):
+    // Keeps cursor at end of line if we scrolled from end of line before
+    // Keeps cursor at old x position when a shorter line was passed in between
+    int savedCx;
 
     // Original terminal state
     struct termios orig_termios;
@@ -348,7 +355,6 @@ void abFree(struct abuf *ab) {
 }
 
 /*** output ***/
-
 void editorScroll() {
     if (E.cy < E.row_offset) {
         E.row_offset = E.cy;
@@ -356,6 +362,14 @@ void editorScroll() {
 
     if (E.cy >= E.row_offset + E.screenrows) {
         E.row_offset = E.cy - E.screenrows + 1;
+    }
+
+    if (E.cx < E.col_offset) {
+        E.col_offset = E.cx;
+    }
+
+    if (E.cx >= E.col_offset + E.screencols) {
+        E.col_offset = E.cx - E.screencols + 1;
     }
 }
 
@@ -390,11 +404,14 @@ void editorDrawRows(struct abuf *ab) {
                 abAppend(ab, "~", 1);
             }
         } else {
-            int len = E.row[filerow].size;
+            int len = E.row[filerow].size - E.col_offset;
+            if (len < 0) {
+                len = 0;
+            }
             if (len > E.screencols) {
                 len = E.screencols;
             }
-            abAppend(ab, E.row[filerow].chars, len);
+            abAppend(ab, &E.row[filerow].chars[E.col_offset], len);
         }
 
         // Erase in line escape sequence
@@ -425,7 +442,8 @@ void editorRefreshScreen() {
 
     // Draw cursor in correct position
     char buf[32];
-    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.row_offset) + 1, E.cx + 1);
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.row_offset) + 1,
+                                              (E.cx - E.col_offset) + 1);
     abAppend(&ab, buf, strlen(buf));
 
     // show cursor after refeshing the screen
@@ -438,19 +456,73 @@ void editorRefreshScreen() {
 /*** input ***/
 
 void editorMoveCursor(int key) {
+    // Get current row using cursor position, NULL if on extra row at the end
+    erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+    int rowLen = row ? row->size : 0;
+
     switch (key) {
         case LEFT:
-            if (E.cx != 0) E.cx--;
+            // Only scroll left if we have not reached column 0
+            if (E.cx != 0) {
+                E.cx--;
+                E.savedCx = E.cx;
+            } 
+            // If we scroll left at position 0, move to the end of the previous line
+            else if (E.cy > 0) {
+                E.cy--;
+                E.cx = rowLen;
+                E.savedCx = -1;
+            }
             break;
         case DOWN:
-            if (E.cy < E.numrows) E.cy++;
+            // Only scroll down if we have not reached the number of rows
+            if (E.cy < E.numrows) {
+                E.cy++;
+            }
             break;
         case UP:
-            if (E.cy != 0) E.cy--;
+            // Only scroll up if we have not reached line 0
+            if (E.cy != 0) {
+                E.cy--;
+            }
             break;
         case RIGHT:
-            if (E.cx != E.screencols - 1) E.cx++;
+            // Only scroll to the right if we have not reached the end of the current row
+            if (row && E.cx < row->size) {
+                E.cx++;
+                E.savedCx = E.cx;
+            }
+            else if (E.cx == rowLen) {
+                E.cy++;
+                E.cx = 0;
+                E.savedCx = E.cx;
+            }
             break;
+    }
+
+    // Get new row
+    erow *newRow = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+    // Get new row length
+    int newRowLen = newRow ? newRow->size : 0;
+
+    // If we're scrolling up/down at the end of the line, keep the cursor at the end of the line
+    if (E.savedCx == -1) {
+        E.cx = newRowLen;
+    }
+    // If we scrolled up/down from a longer line, but not the end, and then went to a shorter line
+    // we keep cursor at the position we reached before in the longer line
+    else {
+        E.cx = E.savedCx;
+    }
+
+    // If we scrolled up/down from a longer line, snap cursor to end of current line
+    if (E.cx > newRowLen) {
+        if (E.cx == rowLen) {
+            E.savedCx = -1;
+        } else {
+            E.savedCx = E.cx;
+        }
+        E.cx = newRowLen;
     }
 }
 
@@ -469,10 +541,17 @@ void editorProcessKeypress() {
         // Move to start of line
         case HOME:
             E.cx = 0;
+            E.savedCx = E.cx;
             break;
         // Move to end of line
         case END:
-            E.cx = E.screencols - 1;
+            {
+                //E.cx = E.screencols - 1;
+                erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+                int rowLen = row ? row->size : 0;
+                E.cx = rowLen;
+                E.savedCx = E.cx;
+            }
             break;
         // Move to top or bottom of screen with PAGE_UP, PAGE_DOWN
         case PAGE_UP:
@@ -506,10 +585,14 @@ void initEditor() {
 
     // Scroll position
     E.row_offset = 0;
+    E.col_offset = 0;
 
     // Number of rows
     E.numrows = 0;
     E.row = NULL;
+
+    // Saved cursor x position for pleasant scrolling, start at cx
+    E.savedCx = E.cx;
 
     // Get window size
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) {
