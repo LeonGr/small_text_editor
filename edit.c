@@ -20,6 +20,7 @@
 /*** defines ***/
 
 #define VERSION "0.0.1"
+#define TAB_SIZE 4
 
 /* Get Ctrl key code by setting the upper 3 bits to 0 */
 #define CTRL_KEY(k) ((k) & 0x1f)
@@ -45,6 +46,8 @@ enum editorKey {
 typedef struct erow {
     int size;
     char *chars;
+    int renderSize;
+    char *render;
 } erow;
 
 /*
@@ -55,6 +58,8 @@ struct editorConfig {
     int cx;
     // Cursor y position
     int cy;
+    // Rendered x position (since some characters are rendered differently)
+    int rx;
     // Scroll position
     int row_offset;
     int col_offset;
@@ -277,6 +282,53 @@ int getWindowSize(int *rows, int *cols) {
 /*** row operations ***/
 
 /*
+ * Convert cursor x to rendered x position based on the characters in a row
+ */
+int editorRowCxtoRx(erow *row, int cx) {
+    int rx = 0;
+    for (int j = 0; j < cx; j++) {
+        if (row->chars[j] == '\t') {
+            rx += (TAB_SIZE - 1) - (rx % TAB_SIZE);
+        }
+        rx++;
+    }
+
+    return rx;
+}
+
+/*
+ * Determine what characters to render based on the characters of a row
+ */
+void editorUpdateRow(erow *row) {
+    // Count the tabs in the row
+    int tabs = 0;
+    for (int j = 0; j < row->size; j++) {
+        if (row->chars[j] == '\t') {
+            tabs++;
+        }
+    }
+
+    // allocate extra space for our row with the tabs replaced by spaces
+    free(row->render);
+    row->render = malloc(row->size + tabs * (TAB_SIZE - 1) + 1);
+
+    // Replace characters in row
+    int index = 0;
+    for (int j = 0; j < row->size; j++) {
+        if (row->chars[j] == '\t') {
+            do {
+                row->render[index++] = ' ';
+            } while (index % TAB_SIZE != 0);
+        } else {
+            row->render[index++] = row->chars[j];
+        }
+    }
+
+    row->render[index] = '\0';
+    row->renderSize = index;
+}
+
+/*
  * Append len characters of chars s to editor
  */
 void editorAppendRow(char *s, size_t len) {
@@ -287,6 +339,11 @@ void editorAppendRow(char *s, size_t len) {
     E.row[current].chars = malloc(len + 1);
     memcpy(E.row[current].chars, s, len);
     E.row[current].chars[len] = '\0';
+
+    E.row[current].renderSize = 0;
+    E.row[current].render = NULL;
+    editorUpdateRow(&E.row[current]);
+
     E.numrows++;
 }
 
@@ -356,6 +413,11 @@ void abFree(struct abuf *ab) {
 
 /*** output ***/
 void editorScroll() {
+    E.rx = 0;
+    if (E.cy < E.numrows) {
+        E.rx = editorRowCxtoRx(&E.row[E.cy], E.cx);
+    }
+
     if (E.cy < E.row_offset) {
         E.row_offset = E.cy;
     }
@@ -364,12 +426,12 @@ void editorScroll() {
         E.row_offset = E.cy - E.screenrows + 1;
     }
 
-    if (E.cx < E.col_offset) {
-        E.col_offset = E.cx;
+    if (E.rx < E.col_offset) {
+        E.col_offset = E.rx;
     }
 
-    if (E.cx >= E.col_offset + E.screencols) {
-        E.col_offset = E.cx - E.screencols + 1;
+    if (E.rx >= E.col_offset + E.screencols) {
+        E.col_offset = E.rx - E.screencols + 1;
     }
 }
 
@@ -404,14 +466,14 @@ void editorDrawRows(struct abuf *ab) {
                 abAppend(ab, "~", 1);
             }
         } else {
-            int len = E.row[filerow].size - E.col_offset;
+            int len = E.row[filerow].renderSize - E.col_offset;
             if (len < 0) {
                 len = 0;
             }
             if (len > E.screencols) {
                 len = E.screencols;
             }
-            abAppend(ab, &E.row[filerow].chars[E.col_offset], len);
+            abAppend(ab, &E.row[filerow].render[E.col_offset], len);
         }
 
         // Erase in line escape sequence
@@ -443,7 +505,7 @@ void editorRefreshScreen() {
     // Draw cursor in correct position
     char buf[32];
     snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.row_offset) + 1,
-                                              (E.cx - E.col_offset) + 1);
+                                              (E.rx - E.col_offset) + 1);
     abAppend(&ab, buf, strlen(buf));
 
     // show cursor after refeshing the screen
@@ -534,7 +596,7 @@ void editorProcessKeypress() {
 
     switch (c) {
         // Quit on C-x
-        case CTRL_KEY('x'):
+        case CTRL_KEY('d'):
             clearScreen();
             exit(0);
             break;
@@ -582,6 +644,7 @@ void initEditor() {
     // Set cursor position
     E.cx = 0;
     E.cy = 0;
+    E.rx = 0;
 
     // Scroll position
     E.row_offset = 0;
