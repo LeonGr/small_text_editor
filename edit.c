@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <time.h>
+#include <stdarg.h>
 
 /*** defines ***/
 
@@ -77,6 +79,11 @@ struct editorConfig {
     // Keeps cursor at end of line if we scrolled from end of line before
     // Keeps cursor at old x position when a shorter line was passed in between
     int savedCx;
+
+    char *filename;
+
+    char statusMessage[80];
+    time_t statusMessage_time;
 
     // Original terminal state
     struct termios orig_termios;
@@ -353,6 +360,9 @@ void editorAppendRow(char *s, size_t len) {
  * Read the content of a file into the editor
  */
 void editorOpen(char *filename) {
+    free(E.filename);
+    E.filename = strdup(filename);
+
     FILE *fp = fopen(filename , "r");
     if (!fp) {
         die("fopen failed");
@@ -478,11 +488,52 @@ void editorDrawRows(struct abuf *ab) {
 
         // Erase in line escape sequence
         abAppend(ab, "\x1b[K", 3);
+        abAppend(ab, "\r\n", 2);
+    }
+}
 
-        // Only draw newline when we're not at the last line (to prevent scroll)
-        if (y < E.screenrows - 1) {
-            abAppend(ab, "\r\n", 2);
+void editorDrawStatusBar(struct abuf *ab) {
+    // Invert colors (graphic rendition mode 7)
+    abAppend(ab, "\x1b[7m", 4);
+
+    char status[80], statusRight[80];
+
+    int len = snprintf(status, sizeof(status), " %.20s - %d lines",
+            E.filename ? E.filename : "[No filename]", E.numrows);
+
+    int lenRight = snprintf(statusRight, sizeof(statusRight), "%d/%d", E.cy + 1, E.numrows);
+
+    if (len > E.screencols) {
+        len = E.screencols;
+    }
+
+    abAppend(ab, status, len);
+
+    while (len < E.screencols) {
+        if (E.screencols - len == lenRight) {
+            abAppend(ab, statusRight, lenRight);
+            break;
+        } else {
+            abAppend(ab, " ", 1);
+            len++;
         }
+    }
+
+    // Reset graphic rendition
+    abAppend(ab, "\x1b[m", 3);
+}
+
+void editorDrawMessageBar(struct abuf *ab) {
+    // Clear line
+    abAppend(ab, "\x1b[K", 3);
+
+    int messageLen = strlen(E.statusMessage);
+    if (messageLen > E.screencols) {
+        messageLen = E.screencols;
+    }
+
+    if (messageLen && time(NULL) - E.statusMessage_time < 5) {
+        abAppend(ab, E.statusMessage, messageLen);
     }
 }
 
@@ -501,6 +552,8 @@ void editorRefreshScreen() {
     abAppend(&ab, "\x1b[H", 3);
 
     editorDrawRows(&ab);
+    editorDrawStatusBar(&ab);
+    editorDrawMessageBar(&ab);
 
     // Draw cursor in correct position
     char buf[32];
@@ -513,6 +566,14 @@ void editorRefreshScreen() {
 
     write(STDOUT_FILENO, ab.b, ab.len);
     abFree(&ab);
+}
+
+void editorSetStatusMessage(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(E.statusMessage, sizeof(E.statusMessage), fmt, ap);
+    va_end(ap);
+    E.statusMessage_time = time(NULL);
 }
 
 /*** input ***/
@@ -528,7 +589,7 @@ void editorMoveCursor(int key) {
             if (E.cx != 0) {
                 E.cx--;
                 E.savedCx = E.cx;
-            } 
+            }
             // If we scroll left at position 0, move to the end of the previous line
             else if (E.cy > 0) {
                 E.cy--;
@@ -657,10 +718,18 @@ void initEditor() {
     // Saved cursor x position for pleasant scrolling, start at cx
     E.savedCx = E.cx;
 
+    E.filename = NULL;
+
+    E.statusMessage[0] = '\0';
+    E.statusMessage_time = 0;
+
     // Get window size
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) {
         die("getWindowSize");
     }
+
+    // Leave 1 row for the status bar
+    E.screenrows -= 2;
 }
 
 int main(int argc, char *argv[]) {
@@ -669,6 +738,8 @@ int main(int argc, char *argv[]) {
     if (argc >= 2) {
         editorOpen(argv[1]);
     }
+
+    editorSetStatusMessage("HELP: Ctrl-d = quit");
 
     while (1) {
         editorRefreshScreen();
