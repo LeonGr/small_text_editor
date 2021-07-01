@@ -348,18 +348,26 @@ void editorUpdateRow(erow *row) {
 /*
  * Append `len` characters of chars `s` to editor
  */
-void editorAppendRow(char *s, size_t len) {
+void editorInsertRow(int at, char *s, size_t len) {
+    // Only add within editor range
+    if (at < 0 || at > E.numrows) {
+        return;
+    }
+
+    // Increase memory for rows by 1 spot
     E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
 
-    int current = E.numrows;
-    E.row[current].size = len;
-    E.row[current].chars = malloc(len + 1);
-    memcpy(E.row[current].chars, s, len);
-    E.row[current].chars[len] = '\0';
+    // Move all following rows to the next spot in memory
+    memmove(&E.row[at + 1], &E.row[at], sizeof(erow) * (E.numrows - at));
 
-    E.row[current].renderSize = 0;
-    E.row[current].render = NULL;
-    editorUpdateRow(&E.row[current]);
+    E.row[at].size = len;
+    E.row[at].chars = malloc(len + 1);
+    memcpy(E.row[at].chars, s, len);
+    E.row[at].chars[len] = '\0';
+
+    E.row[at].renderSize = 0;
+    E.row[at].render = NULL;
+    editorUpdateRow(&E.row[at]);
 
     E.numrows++;
     E.dirty = true;
@@ -384,7 +392,7 @@ void editorDeleteRow(int at) {
     memmove(&E.row[at], &E.row[at + 1], sizeof(erow) * (E.numrows - at - 1));
 
     E.numrows--;
-    E.dirty++;
+    E.dirty = true;
 }
 
 /*
@@ -420,7 +428,7 @@ void editorRowAppendString(erow *row, char *s, size_t len) {
     row->size += len;
     row->chars[row->size] = '\0';
     editorUpdateRow(row);
-    E.dirty++;
+    E.dirty = true;
 }
 
 /*
@@ -447,12 +455,30 @@ void editorRowDeleteChar(erow *row, int at) {
 void editorInsertChar(char c) {
     // If the cursor is at the last (tilde) row, add an extra line first
     if (E.cy == E.numrows) {
-        editorAppendRow("", 0);
+        editorInsertRow(E.numrows, "", 0);
     }
 
     // Insert character in current row
     editorRowInsertChar(&E.row[E.cy], E.cx, c);
     E.cx++;
+}
+
+/*
+ * Insert newline at current cursor position
+ */
+void editorInsertNewline() {
+    if (E.cx == 0) {
+        editorInsertRow(E.cy, "", 0);
+    } else {
+        erow *row = &E.row[E.cy];
+        editorInsertRow(E.cy + 1, &row->chars[E.cx], row->size - E.cx);
+        row = &E.row[E.cy];
+        row->size = E.cx;
+        row->chars[row->size] = '\0';
+        editorUpdateRow(row);
+    }
+    E.cy++;
+    E.cx = 0;
 }
 
 /*
@@ -541,7 +567,7 @@ void editorOpen(char *filename) {
             }
 
             // Append row of size linelen
-            editorAppendRow(line, linelen);
+            editorInsertRow(E.numrows, line, linelen);
         }
     }
 
@@ -870,7 +896,7 @@ void editorProcessKeypress() {
 
     switch (c) {
         case '\r':
-            //todo
+            editorInsertNewline();
             break;
 
         // Quit on C-d
