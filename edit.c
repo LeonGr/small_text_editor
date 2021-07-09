@@ -100,7 +100,8 @@ struct editorConfig E;
 /*** prototypes ***/
 
 void editorSetStatusMessage(const char *fmt, ...);
-
+void editorRefreshScreen();
+char *editorPrompt(char *prompt);
 
 /*** terminal ***/
 
@@ -581,8 +582,14 @@ void editorOpen(char *filename) {
  * If no filename is set, prompt the user for one.
  */
 void editorSave() {
+    // Prompt user for filename if there is none yet
     if (E.filename == NULL) {
-        return;
+        E.filename = editorPrompt("Save as: %s (press Esc to cancel)");
+
+        if (E.filename == NULL) {
+            editorSetStatusMessage("Save cancelled");
+            return;
+        }
     }
 
     // Get editor text and its length
@@ -811,6 +818,60 @@ void editorSetStatusMessage(const char *fmt, ...) {
 /*** input ***/
 
 /*
+ * Display message `prompt` in the status bar, then prompt the user for input.
+ * Returns a pointer to the user's input
+ */
+char *editorPrompt(char *prompt) {
+    size_t bufferSize = 128;
+    char *buf = malloc(bufferSize);
+
+    size_t bufferLength = 0;
+    buf[0] = '\0';
+
+    while (true) {
+        // Continuously show prompt with current user input
+        editorSetStatusMessage(prompt, buf);
+        editorRefreshScreen();
+
+        int c = editorReadKey();
+
+        // Allow user to delete characters in prompt
+        if (c == DELETE || c == CTRL_KEY('h') || c == BACKSPACE) {
+            if (bufferLength != 0) {
+                buf[--bufferLength] = '\0';
+            }
+        }
+        // Return NULL if the user presses escape
+        else if (c == '\x1b') {
+            editorSetStatusMessage("");
+            free(buf);
+            return NULL;
+        }
+        // Return input on carriage return
+        else if (c == '\r') {
+            if (bufferLength != 0) {
+                editorSetStatusMessage("");
+                return buf;
+            }
+        }
+        // Add character to buffer if it's an ASCII char
+        else if (!iscntrl(c) && c < 128) {
+            // Double buffer size when we reach the limit
+            if (bufferLength == bufferSize - 1) {
+                bufferSize *= 2;
+                buf = realloc(buf, bufferSize);
+            }
+
+            // Store character in output buffer
+            buf[bufferLength] = c;
+            // Add NUL after input
+            bufferLength++;
+            buf[bufferLength] = '\0';
+        }
+    }
+}
+
+/*
  * Move cursor based on pressed `key`.
  * When moving up and down the cursor will attempt to stay at the same column.
  * The cursor will also stick to the end of line when moving up and down.
@@ -1026,7 +1087,7 @@ int main(int argc, char *argv[]) {
 
     editorSetStatusMessage("HELP: Ctrl-s = save, Ctrl-d = quit");
 
-    while (1) {
+    while (true) {
         editorRefreshScreen();
         editorProcessKeypress();
     }
