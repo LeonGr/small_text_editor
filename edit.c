@@ -81,6 +81,9 @@ struct editorConfig {
     bool dirty;
     bool forceQuit;
 
+    // Set to true if the user is typing in a prompt
+    bool prompt;
+
     // Saved cursor x position for pleasant scrolling (Vim style):
     // Keeps cursor at end of line if we scrolled from end of line before
     // Keeps cursor at old x position when a shorter line was passed in between
@@ -101,7 +104,7 @@ struct editorConfig E;
 
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
-char *editorPrompt(char *prompt);
+char *editorPrompt(char *prompt, int inputPos);
 
 /*** terminal ***/
 
@@ -584,7 +587,7 @@ void editorOpen(char *filename) {
 void editorSave() {
     // Prompt user for filename if there is none yet
     if (E.filename == NULL) {
-        E.filename = editorPrompt("Save as: %s (press Esc to cancel)");
+        E.filename = editorPrompt("Save as: %s (press Esc to cancel)", 10);
 
         if (E.filename == NULL) {
             editorSetStatusMessage("Save cancelled");
@@ -650,6 +653,10 @@ void abFree(struct abuf *ab) {
 }
 
 /*** output ***/
+
+/*
+ * Scroll the screen if the cursor reaches an edge
+ */
 void editorScroll() {
     E.rx = 0;
     if (E.cy < E.numrows) {
@@ -778,7 +785,9 @@ void editorDrawMessageBar(struct abuf *ab) {
  * (see https://vt100.net/docs/vt100-ug/chapter3.html0 for VT100 escape sequences)
  */
 void editorRefreshScreen() {
-    editorScroll();
+    if (!E.prompt) {
+        editorScroll();
+    }
 
     struct abuf ab = ABUF_INIT;
 
@@ -819,9 +828,14 @@ void editorSetStatusMessage(const char *fmt, ...) {
 
 /*
  * Display message `prompt` in the status bar, then prompt the user for input.
+ * Draws the cursor at the given `inputPos` in the statusbar.
  * Returns a pointer to the user's input
  */
-char *editorPrompt(char *prompt) {
+char *editorPrompt(char *prompt, int inputPos) {
+    int currentCy = E.cy;
+    int currentRx = E.rx;
+    E.prompt = true;
+
     size_t bufferSize = 128;
     char *buf = malloc(bufferSize);
 
@@ -829,6 +843,10 @@ char *editorPrompt(char *prompt) {
     buf[0] = '\0';
 
     while (true) {
+        // Draw cursor in prompt
+        E.cy = E.screencols - 1;
+        E.rx = bufferLength + inputPos;
+
         // Continuously show prompt with current user input
         editorSetStatusMessage(prompt, buf);
         editorRefreshScreen();
@@ -845,12 +863,24 @@ char *editorPrompt(char *prompt) {
         else if (c == '\x1b') {
             editorSetStatusMessage("");
             free(buf);
+
+            // Reset cursor position
+            E.cy = currentCy;
+            E.rx = currentRx;
+            E.prompt = false;
+
             return NULL;
         }
         // Return input on carriage return
         else if (c == '\r') {
             if (bufferLength != 0) {
                 editorSetStatusMessage("");
+
+                // Reset cursor position
+                E.cy = currentCy;
+                E.rx = currentRx;
+                E.prompt = false;
+
                 return buf;
             }
         }
@@ -1060,6 +1090,8 @@ void initEditor() {
 
     E.dirty = false;
     E.forceQuit = false;
+
+    E.prompt = false;
 
     // Saved cursor x position for pleasant scrolling, start at cx
     E.savedCx = E.cx;
