@@ -313,10 +313,16 @@ bool isSeparator(int c) {
     return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];\"", c) != NULL;
 }
 
+/*
+ * Calculate syntax highlighting for the given `row`
+ */
 void editorUpdateSyntax(erow *row) {
+    // Set correct highlighting array size
     row->highlight = realloc(row->highlight, row->renderSize);
+    // Fill array with default highlight
     memset(row->highlight, HL_NORMAL, row->renderSize);
 
+    // Highlight numbers
     bool previous_is_separator = true;
 
     int i = 0;
@@ -337,14 +343,17 @@ void editorUpdateSyntax(erow *row) {
     }
 }
 
+/*
+ * Convert `editorHighlight` constant `hl` to ANSI escape code number
+ */
 int editorSyntaxToColor(int hl) {
     switch (hl) {
         case HL_NUMBER:
-            return 31;
+            return 31; // Red
         case HL_MATCH:
-            return 7;
+            return 7; // Inverted
         default:
-            return 37;
+            return 37; // White
     }
 }
 
@@ -459,6 +468,9 @@ void editorFreeRow(erow *row) {
     free(row->highlight);
 }
 
+/*
+ * Delete row at line `at`
+ */
 void editorDeleteRow(int at) {
     // Don't delete row outside text buffer
     if (at < 0 || at >= E.numrows) {
@@ -473,24 +485,24 @@ void editorDeleteRow(int at) {
     E.dirty = true;
 }
 
-void editorRowInsertString(erow *row, int at, char *s, size_t len) {
-    // allow inserting at end of line
-    if (at < 0 || at > row->size) {
-        at = row->size;
-    }
+// void editorRowInsertString(erow *row, int at, char *s, size_t len) {
+    // // allow inserting at end of line
+    // if (at < 0 || at > row->size) {
+        // at = row->size;
+    // }
 
-    // Increase size of row by length of string to insert
-    row->chars = realloc(row->chars, row->size + len + 1);
+    // // Increase size of row by length of string to insert
+    // row->chars = realloc(row->chars, row->size + len + 1);
 
-    // move characters after 'at' 'len' spots to make space for the character
-    memmove(&row->chars[at + len], &row->chars[at], row->size - at + len);
+    // // move characters after 'at' 'len' spots to make space for the character
+    // memmove(&row->chars[at + len], &row->chars[at], row->size - at + len);
 
-    // // Insert string 's'
-    memcpy(&row->chars[at], s, len);
-    row->size += len;
+    // // // Insert string 's'
+    // memcpy(&row->chars[at], s, len);
+    // row->size += len;
 
-    editorUpdateRow(row);
-}
+    // editorUpdateRow(row);
+// }
 
 /*
  * Add character `c` to `row` at given position `at`
@@ -542,6 +554,22 @@ void editorRowDeleteChar(erow *row, int at) {
     row->size--;
     editorUpdateRow(row);
     E.dirty = true;
+}
+
+/*
+ * Delete characters in current row from cursor x to start
+ */
+void editorClearRowToStart() {
+    if (E.cx == 0) {
+        return;
+    }
+
+    erow *row = &E.row[E.cy];
+    memmove(&row->chars[0], &row->chars[E.cx], row->size - E.cx);
+    row->size -= E.cx;
+    editorUpdateRow(row);
+    E.dirty = true;
+    E.cx = 0;
 }
 
 /*** editor operations ***/
@@ -715,6 +743,10 @@ void editorSave() {
 
 /*** find/search ***/
 
+/*
+ * Method called after user types in the find prompt.
+ * Takes the current `query` and pressed `key` as parameters.
+ */
 void editorFindCallback(char *query, int key) {
     // Save the search status between calls
     static int last_match = -1;
@@ -723,6 +755,8 @@ void editorFindCallback(char *query, int key) {
     static int saved_highlight_line;
     static char *saved_highlight = NULL;
 
+    // If there is a saved highlight, set if to the saved highlight line.
+    // This is done to remove the search result highlight from previous matches.
     if (saved_highlight) {
         memcpy(E.row[saved_highlight_line].highlight, saved_highlight, E.row[saved_highlight_line].renderSize);
         free(saved_highlight);
@@ -1275,6 +1309,10 @@ void editorProcessKeypress() {
             // Simulate delete by first moving cursor to the right
             editorMoveCursor(RIGHT);
             editorDeleteChar();
+            break;
+
+        case CTRL_KEY('u'):
+            editorClearRowToStart();
             break;
 
         // Move to top or bottom of screen with PAGE_UP, PAGE_DOWN
