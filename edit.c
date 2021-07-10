@@ -45,6 +45,12 @@ enum editorKey {
     PAGE_DOWN,
 };
 
+enum editorHighlight {
+    HL_NORMAL = 0,
+    HL_NUMBER,
+    HL_MATCH,
+};
+
 /*** data ***/
 
 typedef struct erow {
@@ -52,6 +58,7 @@ typedef struct erow {
     char *chars;
     int renderSize;
     char *render;
+    unsigned char *highlight;
 } erow;
 
 /*
@@ -300,6 +307,47 @@ int getWindowSize(int *rows, int *cols) {
     }
 }
 
+/*** syntax highlighting ***/
+
+bool isSeparator(int c) {
+    return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];\"", c) != NULL;
+}
+
+void editorUpdateSyntax(erow *row) {
+    row->highlight = realloc(row->highlight, row->renderSize);
+    memset(row->highlight, HL_NORMAL, row->renderSize);
+
+    bool previous_is_separator = true;
+
+    int i = 0;
+    while (i < row->size) {
+        char c = row->render[i];
+        unsigned char previous_highlight = (i > 0) ? row->highlight[i - 1] : HL_NORMAL;
+
+        if ((isdigit(c) && (previous_is_separator || previous_highlight == HL_NUMBER)) ||
+            (c == '.' && previous_highlight == HL_NUMBER)) {
+            row->highlight[i] = HL_NUMBER;
+            i++;
+            previous_is_separator = false;
+            continue;
+        }
+
+        previous_is_separator = isSeparator(c);
+        i++;
+    }
+}
+
+int editorSyntaxToColor(int hl) {
+    switch (hl) {
+        case HL_NUMBER:
+            return 31;
+        case HL_MATCH:
+            return 7;
+        default:
+            return 37;
+    }
+}
+
 /*** row operations ***/
 
 /*
@@ -369,6 +417,8 @@ void editorUpdateRow(erow *row) {
 
     row->render[index] = '\0';
     row->renderSize = index;
+
+    editorUpdateSyntax(row);
 }
 
 /*
@@ -393,6 +443,7 @@ void editorInsertRow(int at, char *s, size_t len) {
 
     E.row[at].renderSize = 0;
     E.row[at].render = NULL;
+    E.row[at].highlight = NULL;
     editorUpdateRow(&E.row[at]);
 
     E.numrows++;
@@ -405,6 +456,7 @@ void editorInsertRow(int at, char *s, size_t len) {
 void editorFreeRow(erow *row) {
     free(row->render);
     free(row->chars);
+    free(row->highlight);
 }
 
 void editorDeleteRow(int at) {
@@ -664,11 +716,21 @@ void editorSave() {
 /*** find/search ***/
 
 void editorFindCallback(char *query, int key) {
+    // Save the search status between calls
     static int last_match = -1;
     static int direction = 1;
 
-    // Return on carriage return or escape
-    if (key == '\r' || key == '\x1b') {
+    static int saved_highlight_line;
+    static char *saved_highlight = NULL;
+
+    if (saved_highlight) {
+        memcpy(E.row[saved_highlight_line].highlight, saved_highlight, E.row[saved_highlight_line].renderSize);
+        free(saved_highlight);
+        saved_highlight = NULL;
+    }
+
+    // Return on escape
+    if (key == '\x1b') {
         last_match = -1;
         direction = 1;
         return;
@@ -703,17 +765,23 @@ void editorFindCallback(char *query, int key) {
             last_match = current;
             int pos = match - row->render;
 
-            // editorRowInsertString(row, pos, "\x1b[7m", 4);
-            // editorRowInsertString(row, pos + strlen(query), "\x1b[m", 3);
+            // Scroll to the match, the match will appear at the top of the screen
+            E.row_offset = current;
 
-            // Set position to match position
-            E.cy = current;
-            E.cx = editorRowRxtoCx(row, pos);
+            // Place cursor at match on carriage return
+            if (key == '\r') {
+                E.cy = current;
+                E.cx = pos;
 
-            // Scroll to the bottom, so editorScroll will scroll up to the set cursor position
-            // and the match will appear at the top of the screen
-            E.row_offset = E.numrows;
+                // reset saved match and direction
+                last_match = -1;
+                direction = 1;
+            }
 
+            saved_highlight_line = current;
+            saved_highlight = malloc(row->size);
+            mempcpy(saved_highlight, row->highlight, row->renderSize);
+            memset(&row->highlight[pos], HL_MATCH, strlen(query));
             break;
         }
     }
@@ -840,7 +908,42 @@ void editorDrawRows(struct abuf *ab) {
             if (len > E.screencols) {
                 len = E.screencols;
             }
-            abAppend(ab, &E.row[filerow].render[E.col_offset], len);
+
+            char *c = &E.row[filerow].render[E.col_offset];
+            unsigned char *highlight = &E.row[filerow].highlight[E.col_offset];
+
+            int current_color = -1;
+            for (int i = 0; i < len; i++) {
+                // Set default text color
+                if (highlight[i] == HL_NORMAL) {
+                    // Only insert 'reset' escape code when current color is not default
+                    if (current_color != -1) {
+                        abAppend(ab, "\x1b[39m", 5);
+                        abAppend(ab, "\x1b[m", 3);
+                        current_color = -1;
+                    }
+
+                    abAppend(ab, &c[i], 1);
+                }
+                // Set special text color
+                else {
+                    int color = editorSyntaxToColor(highlight[i]);
+
+                    // Only insert color escape code when current color is the current color
+                    if (color != current_color) {
+                        current_color = color;
+                        char buf[16];
+                        int colorLength = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+                        abAppend(ab, buf, colorLength);
+                    }
+
+                    abAppend(ab, &c[i], 1);
+                }
+            }
+
+            // reset color at end of line
+            abAppend(ab, "\x1b[39m", 5);
+            abAppend(ab, "\x1b[m", 3);
         }
 
         // Erase in line escape sequence
@@ -906,6 +1009,7 @@ void editorDrawMessageBar(struct abuf *ab) {
  * (see https://vt100.net/docs/vt100-ug/chapter3.html0 for VT100 escape sequences)
  */
 void editorRefreshScreen() {
+    // Do not scroll the editor when the user is using a prompt
     if (!E.prompt) {
         editorScroll();
     }
@@ -955,7 +1059,7 @@ void editorSetStatusMessage(const char *fmt, ...) {
 char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
     int savedCy = E.cy;
     int savedRx = E.rx;
-    // E.prompt = true;
+    E.prompt = true;
 
     size_t bufferSize = 128;
     char *buf = malloc(bufferSize);
@@ -965,8 +1069,8 @@ char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
 
     while (true) {
         // Draw cursor in prompt
-        // E.cy = E.screencols - 1;
-        // E.rx = bufferLength + inputPos;
+        E.cy = E.screencols - 1;
+        E.rx = bufferLength + inputPos;
 
         // Continuously show prompt with current user input
         editorSetStatusMessage(prompt, buf);
@@ -983,9 +1087,9 @@ char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
         // Return NULL if the user presses escape
         else if (c == '\x1b') {
             // Reset cursor position
-            // E.cy = savedCy;
-            // E.rx = savedRx;
-            // E.prompt = false;
+            E.cy = savedCy;
+            E.rx = savedRx;
+            E.prompt = false;
 
             editorSetStatusMessage("");
 
@@ -1001,9 +1105,9 @@ char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
         else if (c == '\r') {
             if (bufferLength != 0) {
                 // Reset cursor position
-                // E.cy = savedCy;
-                // E.rx = savedRx;
-                // E.prompt = false;
+                E.cy = savedCy;
+                E.rx = savedRx;
+                E.prompt = false;
 
                 editorSetStatusMessage("");
 
