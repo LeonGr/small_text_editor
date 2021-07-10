@@ -104,7 +104,7 @@ struct editorConfig E;
 
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
-char *editorPrompt(char *prompt, int inputPos);
+char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int));
 
 /*** terminal ***/
 
@@ -318,6 +318,28 @@ int editorRowCxtoRx(erow *row, int cx) {
 }
 
 /*
+ * Convert rendered x (`rx`) to cursor x position based on the characters in `row`
+ */
+int editorRowRxtoCx(erow *row, int rx) {
+    int cur_rx = 0;
+
+    int cx;
+    for (cx = 0; cx < row->size; cx++) {
+        if (row->chars[cx] == '\t') {
+            cur_rx += (TAB_SIZE - 1) - (cur_rx % TAB_SIZE);
+        }
+
+        cur_rx++;
+
+        if (cur_rx > rx) {
+            return cx;
+        }
+    }
+
+    return cx;
+}
+
+/*
  * Determine what characters to render based on the characters of `row`
  */
 void editorUpdateRow(erow *row) {
@@ -397,6 +419,25 @@ void editorDeleteRow(int at) {
 
     E.numrows--;
     E.dirty = true;
+}
+
+void editorRowInsertString(erow *row, int at, char *s, size_t len) {
+    // allow inserting at end of line
+    if (at < 0 || at > row->size) {
+        at = row->size;
+    }
+
+    // Increase size of row by length of string to insert
+    row->chars = realloc(row->chars, row->size + len + 1);
+
+    // move characters after 'at' 'len' spots to make space for the character
+    memmove(&row->chars[at + len], &row->chars[at], row->size - at + len);
+
+    // // Insert string 's'
+    memcpy(&row->chars[at], s, len);
+    row->size += len;
+
+    editorUpdateRow(row);
 }
 
 /*
@@ -587,7 +628,7 @@ void editorOpen(char *filename) {
 void editorSave() {
     // Prompt user for filename if there is none yet
     if (E.filename == NULL) {
-        E.filename = editorPrompt("Save as: %s (press Esc to cancel)", 10);
+        E.filename = editorPrompt("Save as: %s (press ESC to cancel)", 10, NULL);
 
         if (E.filename == NULL) {
             editorSetStatusMessage("Save cancelled");
@@ -620,6 +661,86 @@ void editorSave() {
     editorSetStatusMessage("Couldn't save! I/O error: %s", strerror(errno));
 }
 
+/*** find/search ***/
+
+void editorFindCallback(char *query, int key) {
+    static int last_match = -1;
+    static int direction = 1;
+
+    // Return on carriage return or escape
+    if (key == '\r' || key == '\x1b') {
+        last_match = -1;
+        direction = 1;
+        return;
+    } else if (key == RIGHT || key == DOWN) {
+        direction = 1;
+    } else if (key == LEFT || key == UP) {
+        direction = -1;
+    } else {
+        last_match = -1;
+        direction = 1;
+    }
+
+    if (last_match == -1) {
+        direction = 1;
+    }
+    int current = last_match;
+
+    for (int i = 0; i < E.numrows; i++) {
+        current += direction;
+
+        // Wrap around
+        if (current == -1) {
+            current = E.numrows - 1;
+        } else if (current == E.numrows) {
+            current = 0;
+        }
+
+        erow *row = &E.row[current];
+        char *match = strstr(row->render, query);
+
+        if (match) {
+            last_match = current;
+            int pos = match - row->render;
+
+            // editorRowInsertString(row, pos, "\x1b[7m", 4);
+            // editorRowInsertString(row, pos + strlen(query), "\x1b[m", 3);
+
+            // Set position to match position
+            E.cy = current;
+            E.cx = editorRowRxtoCx(row, pos);
+
+            // Scroll to the bottom, so editorScroll will scroll up to the set cursor position
+            // and the match will appear at the top of the screen
+            E.row_offset = E.numrows;
+
+            break;
+        }
+    }
+}
+
+/*
+ * Search for query in opened file, search executed after each keypress.
+ * Pressing return will keep put the cursor at the match.
+ * Pressing escape will return the cursor to the position before the search.
+ */
+void editorFind() {
+    int savedCx = E.cx;
+    int savedCy = E.cy;
+    int savedColumnOffset = E.col_offset;
+    int savedRowOffset = E.row_offset;
+
+    char *query = editorPrompt("Search: %s (ESC = cancel, Arrows = next/prev, Enter = select)", 9, editorFindCallback);
+
+    if (query) {
+        free(query);
+    } else {
+        E.cx = savedCx;
+        E.cy = savedCy;
+        E.col_offset = savedColumnOffset;
+        E.row_offset = savedRowOffset;
+    }
+}
 
 /*** append buffer ***/
 
@@ -831,10 +952,10 @@ void editorSetStatusMessage(const char *fmt, ...) {
  * Draws the cursor at the given `inputPos` in the statusbar.
  * Returns a pointer to the user's input
  */
-char *editorPrompt(char *prompt, int inputPos) {
-    int currentCy = E.cy;
-    int currentRx = E.rx;
-    E.prompt = true;
+char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
+    int savedCy = E.cy;
+    int savedRx = E.rx;
+    // E.prompt = true;
 
     size_t bufferSize = 128;
     char *buf = malloc(bufferSize);
@@ -844,8 +965,8 @@ char *editorPrompt(char *prompt, int inputPos) {
 
     while (true) {
         // Draw cursor in prompt
-        E.cy = E.screencols - 1;
-        E.rx = bufferLength + inputPos;
+        // E.cy = E.screencols - 1;
+        // E.rx = bufferLength + inputPos;
 
         // Continuously show prompt with current user input
         editorSetStatusMessage(prompt, buf);
@@ -861,25 +982,34 @@ char *editorPrompt(char *prompt, int inputPos) {
         }
         // Return NULL if the user presses escape
         else if (c == '\x1b') {
-            editorSetStatusMessage("");
-            free(buf);
-
             // Reset cursor position
-            E.cy = currentCy;
-            E.rx = currentRx;
-            E.prompt = false;
+            // E.cy = savedCy;
+            // E.rx = savedRx;
+            // E.prompt = false;
+
+            editorSetStatusMessage("");
+
+            if (callback) {
+                callback(buf, c);
+            }
+
+            free(buf);
 
             return NULL;
         }
         // Return input on carriage return
         else if (c == '\r') {
             if (bufferLength != 0) {
+                // Reset cursor position
+                // E.cy = savedCy;
+                // E.rx = savedRx;
+                // E.prompt = false;
+
                 editorSetStatusMessage("");
 
-                // Reset cursor position
-                E.cy = currentCy;
-                E.rx = currentRx;
-                E.prompt = false;
+                if (callback) {
+                    callback(buf, c);
+                }
 
                 return buf;
             }
@@ -897,6 +1027,10 @@ char *editorPrompt(char *prompt, int inputPos) {
             // Add NUL after input
             bufferLength++;
             buf[bufferLength] = '\0';
+        }
+
+        if (callback) {
+            callback(buf, c);
         }
     }
 }
@@ -1005,6 +1139,11 @@ void editorProcessKeypress() {
         // Save on C-s
         case CTRL_KEY('s'):
             editorSave();
+            break;
+
+        // Find/search on C-f
+        case CTRL_KEY('f'):
+            editorFind();
             break;
 
         // Move to start of line
@@ -1117,7 +1256,7 @@ int main(int argc, char *argv[]) {
         editorOpen(argv[1]);
     }
 
-    editorSetStatusMessage("HELP: Ctrl-s = save, Ctrl-d = quit");
+    editorSetStatusMessage("HELP: Ctrl-s = save, Ctrl-d = quit, Ctrl-f = search");
 
     while (true) {
         editorRefreshScreen();
