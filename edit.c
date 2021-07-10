@@ -1285,11 +1285,13 @@ void editorProcessKeypress() {
             break;
 
         // Move to start of line
+        case CTRL_KEY('a'):
         case HOME:
             E.cx = 0;
             E.savedCx = E.cx;
             break;
         // Move to end of line
+        case CTRL_KEY('e'):
         case END:
             {
                 //E.cx = E.screencols - 1;
