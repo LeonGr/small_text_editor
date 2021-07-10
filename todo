@@ -1,1 +1,3 @@
-- search result highlighting (editorRowInsertString?)
+x search result highlighting
+- add syntax highlighting
+- add vim-style mode(s)
