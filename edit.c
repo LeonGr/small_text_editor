@@ -48,6 +48,8 @@ enum editorKey {
 enum editorHighlight {
     HL_NORMAL = 0,
     HL_COMMENT,
+    HL_KEYWORD1,
+    HL_KEYWORD2,
     HL_STRING,
     HL_NUMBER,
     HL_MATCH,
@@ -63,8 +65,10 @@ enum editorHighlight {
  */
 struct editorSyntax {
     char *filetype;
-    // Keywords to detect filetype
+    // Keywords in the filename to detect filetype
     char **filematch;
+    // Keywords of the current filetype (two types: add | after a keyword to set type2)
+    char **keywords;
     // String that starts a single line comment
     char *single_line_comment_start;
     // Flags that determine what to highlight
@@ -130,8 +134,14 @@ struct editorConfig E;
 
 /*** filetypes ***/
 
+/* C/C++ highlighting */
+
 // C/C++ file extensions
 char *C_HL_extensions[] = { ".c", ".h", ".cpp", NULL };
+char *C_HL_keywords[] = {
+    "break", "case", "class", "continue", "else", "enum", "for", "if", "return", "static", "struct", "switch", "typedef", "union", "while",
+    "char|", "double|", "float|", "int|", "long|", "signed|", "unsigned|", "void|", NULL
+};
 
 /*
  * highlight database
@@ -140,6 +150,7 @@ struct editorSyntax HLDB[] = {
     {
         "c",
         C_HL_extensions,
+        C_HL_keywords,
         "//",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
     },
@@ -364,6 +375,8 @@ void editorUpdateSyntax(erow *row) {
 
     if (E.syntax == NULL) return;
 
+    char **keywords = E.syntax->keywords;
+
     char *single_line_comment_start = E.syntax->single_line_comment_start;
     int comment_start_len = single_line_comment_start ? strlen(single_line_comment_start) : 0;
 
@@ -427,6 +440,33 @@ void editorUpdateSyntax(erow *row) {
             }
         }
 
+        if(previous_is_separator) {
+            int j;
+            for (j = 0; keywords[j]; j++) {
+                int keyword_len = strlen(keywords[j]);
+                int is_type2 = keywords[j][keyword_len - 1] == '|';
+
+                if (is_type2) {
+                    keyword_len--;
+                }
+
+                // Check if the current character is the start of a keyword...
+                if (!strncmp(&row->render[i], keywords[j], keyword_len) &&
+                // ...and is followed by a separator (so it's not the start of a different word)
+                    isSeparator(row->render[i + keyword_len])) {
+                    // Set the highlight for the keyword
+                    memset(&row->highlight[i], is_type2 ? HL_KEYWORD2 : HL_KEYWORD1, keyword_len);
+                    i += keyword_len;
+                    break;
+                }
+            }
+
+            if (keywords[j] != NULL) {
+                previous_is_separator = false;
+                continue;
+            }
+        }
+
         previous_is_separator = isSeparator(c);
         i++;
     }
@@ -439,6 +479,10 @@ int editorSyntaxToColor(int hl) {
     switch (hl) {
         case HL_COMMENT:
             return 36; // Cyan
+        case HL_KEYWORD1:
+            return 33; // Yellow
+        case HL_KEYWORD2:
+            return 32; // Green
         case HL_STRING:
             return 35; // Magenta
         case HL_NUMBER:
