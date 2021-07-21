@@ -47,11 +47,13 @@ enum editorKey {
 
 enum editorHighlight {
     HL_NORMAL = 0,
+    HL_STRING,
     HL_NUMBER,
     HL_MATCH,
 };
 
 #define HL_HIGHLIGHT_NUMBERS (1<<0)
+#define HL_HIGHLIGHT_STRINGS (1<<1)
 
 /*** data ***/
 
@@ -135,7 +137,7 @@ struct editorSyntax HLDB[] = {
     {
         "c",
         C_HL_extensions,
-        HL_HIGHLIGHT_NUMBERS
+        HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
     },
 };
 
@@ -358,13 +360,45 @@ void editorUpdateSyntax(erow *row) {
 
     if (E.syntax == NULL) return;
 
-    // Highlight numbers
     bool previous_is_separator = true;
+    char string_delimiter = '\0';
 
     int i = 0;
     while (i < row->size) {
         char c = row->render[i];
         unsigned char previous_highlight = (i > 0) ? row->highlight[i - 1] : HL_NORMAL;
+
+        if (E.syntax->flags & HL_HIGHLIGHT_STRINGS) {
+            // Check if we're in a string
+            if (string_delimiter) {
+                row->highlight[i] = HL_STRING;
+
+                // An escape character started with '\' means that we should not stop the string highlighting
+                // (we make sure there is an extra character after the backslash)
+                if (c == '\\' && i + 1 < row->renderSize) {
+                    row->highlight[i + 1] = HL_STRING;
+                    i += 2;
+                    continue;
+                }
+
+                // Reset string_delimiter if we reached the end delimeter
+                if (c == string_delimiter) {
+                    string_delimiter = '\0';
+                }
+
+                i++;
+                previous_is_separator = true;
+                continue;
+            } else {
+                // Check if this is the start of a string
+                if (c == '"' || c == '\'') {
+                    string_delimiter = c;
+                    row->highlight[i] = HL_STRING;
+                    i++;
+                    continue;
+                }
+            }
+        }
 
         if (E.syntax->flags & HL_HIGHLIGHT_NUMBERS) {
             if ((isdigit(c) && (previous_is_separator || previous_highlight == HL_NUMBER)) ||
@@ -386,6 +420,8 @@ void editorUpdateSyntax(erow *row) {
  */
 int editorSyntaxToColor(int hl) {
     switch (hl) {
+        case HL_STRING:
+            return 35; // Magenta
         case HL_NUMBER:
             return 31; // Red
         case HL_MATCH:
