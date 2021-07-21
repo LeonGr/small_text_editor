@@ -474,6 +474,7 @@ void editorUpdateSyntax(erow *row) {
 
 /*
  * Convert `editorHighlight` constant `hl` to ANSI escape code number
+ * See: https://ss64.com/nt/syntax-ansi.html
  */
 int editorSyntaxToColor(int hl) {
     switch (hl) {
@@ -1124,8 +1125,15 @@ void editorDrawRows(struct abuf *ab) {
 
             int current_color = -1;
             for (int i = 0; i < len; i++) {
+                if (iscntrl(c[i])) {
+                    char symbol = (c[i] <= 26) ? '@' + c[i] : '?';
+                    abAppend(ab, "\x1b[90m", 5);
+                    abAppend(ab, "\x1b[7m", 4);
+                    abAppend(ab, &symbol, 1);
+                    abAppend(ab, "\x1b[m", 4);
+                }
                 // Set default text color
-                if (highlight[i] == HL_NORMAL) {
+                else if (highlight[i] == HL_NORMAL) {
                     // Only insert 'reset' escape code when current color is not default
                     if (current_color != -1) {
                         abAppend(ab, "\x1b[39m", 5);
