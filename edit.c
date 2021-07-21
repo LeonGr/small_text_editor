@@ -123,7 +123,7 @@ struct editorConfig {
     char statusMessage[80];
     time_t statusMessage_time;
 
-    // Store the currernt highlight information
+    // Store the current highlight information
     struct editorSyntax *syntax;
 
     // Original terminal state
@@ -538,9 +538,11 @@ void editorSelectSyntaxHighlight() {
 int editorRowCxtoRx(erow *row, int cx) {
     int rx = 0;
     for (int i = 0; i < cx; i++) {
-        if (row->chars[i] == '\t') {
+        char c = row->chars[i];
+
+        if (c == '\t') {
             rx += (TAB_SIZE - 1) - (rx % TAB_SIZE);
-        } else if (iscntrl(row->chars[i])) {
+        } else if (iscntrl(c)) {
             rx++;
         }
         rx++;
@@ -557,9 +559,11 @@ int editorRowRxtoCx(erow *row, int rx) {
 
     int cx;
     for (cx = 0; cx < row->size; cx++) {
-        if (row->chars[cx] == '\t') {
+        char c = row->chars[cx];
+
+        if (c == '\t') {
             cur_rx += (TAB_SIZE - 1) - (cur_rx % TAB_SIZE);
-        } else if (iscntrl(row->chars[cx])) {
+        } else if (iscntrl(c)) {
             cur_rx++;
         }
 
@@ -580,11 +584,14 @@ void editorUpdateRow(erow *row) {
     // Count the tabs in the row
     int tabs = 0;
     int ctrl_chars = 0;
+    int non_ascii = 0;
     for (int i = 0; i < row->size; i++) {
-        if (row->chars[i] == '\t') {
+        char c = row->chars[i];
+
+        if (c == '\t') {
             tabs++;
         }
-        else if (iscntrl(row->chars[i])) {
+        else if (iscntrl(c)) {
             ctrl_chars++;
         }
     }
@@ -596,17 +603,21 @@ void editorUpdateRow(erow *row) {
     // Replace characters in row
     int index = 0;
     for (int i = 0; i < row->size; i++) {
-        if (row->chars[i] == '\t') {
+        char c = row->chars[i];
+
+        // Render tabs as TAB_SIZE spaces
+        if (c == '\t') {
             do {
                 row->render[index++] = ' ';
             } while (index % TAB_SIZE != 0);
         }
-        else if (iscntrl(row->chars[i])) {
+        // Render control characters with a preceding '^'
+        else if (iscntrl(c)) {
             row->render[index++] = '^';
-            row->render[index++] = row->chars[i];
+            row->render[index++] = c;
         }
         else {
-            row->render[index++] = row->chars[i];
+            row->render[index++] = c;
         }
     }
 
@@ -1138,16 +1149,29 @@ void editorDrawRows(struct abuf *ab) {
 
             int current_color = -1;
             for (int i = 0; i < len; i++) {
-                // Set color of control characters and preceding '^'
-                if (iscntrl(c[i]) || (i + 1 < len && iscntrl(c[i+1]))) {
-                    char symbol = (c[i] == '^') ?  '^' : (c[i] <= 26) ? '@' + c[i] : '?';
+                // Set color of control characters and preceding '^' as well as non-ASCII characters
+                if (iscntrl(c[i]) || (i + 1 < len && iscntrl(c[i+1])) || c[i] < 0) {
+                    char symbol;
+                    if (c[i] == '^') {
+                        symbol = '^';
+                    } else if (c[i] < 0) {
+                        // draw non-ASCII characters as ?
+                        symbol = '?';
+                    } else {
+                        symbol = (c[i] <= 26) ? '@' + c[i] : '?';
+                    }
                     // Set color to bright grey
                     abAppend(ab, "\x1b[90m", 5);
                     // Invert color
                     abAppend(ab, "\x1b[7m", 4);
                     abAppend(ab, &symbol, 1);
                     // Reset color
-                    abAppend(ab, "\x1b[m", 4);
+                    abAppend(ab, "\x1b[m", 3);
+                    if (current_color != -1) {
+                        char buf[16];
+                        int color_len = snprintf(buf, sizeof(buf), "\x1b[%dm", current_color);
+                        abAppend(ab, buf, color_len);
+                    }
                 }
                 // Set default text color
                 else if (highlight[i] == HL_NORMAL) {
