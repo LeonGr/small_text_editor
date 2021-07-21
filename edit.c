@@ -540,6 +540,8 @@ int editorRowCxtoRx(erow *row, int cx) {
     for (int i = 0; i < cx; i++) {
         if (row->chars[i] == '\t') {
             rx += (TAB_SIZE - 1) - (rx % TAB_SIZE);
+        } else if (iscntrl(row->chars[i])) {
+            rx++;
         }
         rx++;
     }
@@ -557,6 +559,8 @@ int editorRowRxtoCx(erow *row, int rx) {
     for (cx = 0; cx < row->size; cx++) {
         if (row->chars[cx] == '\t') {
             cur_rx += (TAB_SIZE - 1) - (cur_rx % TAB_SIZE);
+        } else if (iscntrl(row->chars[cx])) {
+            cur_rx++;
         }
 
         cur_rx++;
@@ -575,15 +579,19 @@ int editorRowRxtoCx(erow *row, int rx) {
 void editorUpdateRow(erow *row) {
     // Count the tabs in the row
     int tabs = 0;
+    int ctrl_chars = 0;
     for (int i = 0; i < row->size; i++) {
         if (row->chars[i] == '\t') {
             tabs++;
+        }
+        else if (iscntrl(row->chars[i])) {
+            ctrl_chars++;
         }
     }
 
     // allocate extra space for our row with the tabs replaced by spaces
     free(row->render);
-    row->render = malloc(row->size + tabs * (TAB_SIZE - 1) + 1);
+    row->render = malloc(row->size + tabs * (TAB_SIZE - 1) + ctrl_chars + 1);
 
     // Replace characters in row
     int index = 0;
@@ -592,7 +600,12 @@ void editorUpdateRow(erow *row) {
             do {
                 row->render[index++] = ' ';
             } while (index % TAB_SIZE != 0);
-        } else {
+        }
+        else if (iscntrl(row->chars[i])) {
+            row->render[index++] = '^';
+            row->render[index++] = row->chars[i];
+        }
+        else {
             row->render[index++] = row->chars[i];
         }
     }
@@ -1125,8 +1138,9 @@ void editorDrawRows(struct abuf *ab) {
 
             int current_color = -1;
             for (int i = 0; i < len; i++) {
-                if (iscntrl(c[i])) {
-                    char symbol = (c[i] <= 26) ? '@' + c[i] : '?';
+                // Set color of control characters and preceding '^'
+                if (iscntrl(c[i]) || (i + 1 < len && iscntrl(c[i+1]))) {
+                    char symbol = (c[i] == '^') ?  '^' : (c[i] <= 26) ? '@' + c[i] : '?';
                     // Set color to bright grey
                     abAppend(ab, "\x1b[90m", 5);
                     // Invert color
