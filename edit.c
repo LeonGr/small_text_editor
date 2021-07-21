@@ -1127,9 +1127,12 @@ void editorDrawRows(struct abuf *ab) {
             for (int i = 0; i < len; i++) {
                 if (iscntrl(c[i])) {
                     char symbol = (c[i] <= 26) ? '@' + c[i] : '?';
+                    // Set color to bright grey
                     abAppend(ab, "\x1b[90m", 5);
+                    // Invert color
                     abAppend(ab, "\x1b[7m", 4);
                     abAppend(ab, &symbol, 1);
+                    // Reset color
                     abAppend(ab, "\x1b[m", 4);
                 }
                 // Set default text color
