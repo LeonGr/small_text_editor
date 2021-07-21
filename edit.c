@@ -47,6 +47,7 @@ enum editorKey {
 
 enum editorHighlight {
     HL_NORMAL = 0,
+    HL_COMMENT,
     HL_STRING,
     HL_NUMBER,
     HL_MATCH,
@@ -64,6 +65,8 @@ struct editorSyntax {
     char *filetype;
     // Keywords to detect filetype
     char **filematch;
+    // String that starts a single line comment
+    char *single_line_comment_start;
     // Flags that determine what to highlight
     int flags;
 };
@@ -137,6 +140,7 @@ struct editorSyntax HLDB[] = {
     {
         "c",
         C_HL_extensions,
+        "//",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
     },
 };
@@ -360,6 +364,9 @@ void editorUpdateSyntax(erow *row) {
 
     if (E.syntax == NULL) return;
 
+    char *single_line_comment_start = E.syntax->single_line_comment_start;
+    int comment_start_len = single_line_comment_start ? strlen(single_line_comment_start) : 0;
+
     bool previous_is_separator = true;
     char string_delimiter = '\0';
 
@@ -367,6 +374,16 @@ void editorUpdateSyntax(erow *row) {
     while (i < row->size) {
         char c = row->render[i];
         unsigned char previous_highlight = (i > 0) ? row->highlight[i - 1] : HL_NORMAL;
+
+        if (comment_start_len && !string_delimiter) {
+            // Check if the current character position contains the comment start string
+            if (!strncmp(&row->render[i], single_line_comment_start, comment_start_len)) {
+                // Set the highlight of the rest of the line to comment
+                memset(&row->highlight[i], HL_COMMENT, row->renderSize - i);
+                // Don't apply highlighting to the rest of the row
+                break;
+            }
+        }
 
         if (E.syntax->flags & HL_HIGHLIGHT_STRINGS) {
             // Check if we're in a string
@@ -420,6 +437,8 @@ void editorUpdateSyntax(erow *row) {
  */
 int editorSyntaxToColor(int hl) {
     switch (hl) {
+        case HL_COMMENT:
+            return 36; // Cyan
         case HL_STRING:
             return 35; // Magenta
         case HL_NUMBER:
