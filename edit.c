@@ -739,25 +739,6 @@ void editorDeleteRow(int at) {
     E.dirty = true;
 }
 
-// void editorRowInsertString(erow *row, int at, char *s, size_t len) {
-    // // allow inserting at end of line
-    // if (at < 0 || at > row->size) {
-        // at = row->size;
-    // }
-
-    // // Increase size of row by length of string to insert
-    // row->chars = realloc(row->chars, row->size + len + 1);
-
-    // // move characters after 'at' 'len' spots to make space for the character
-    // memmove(&row->chars[at + len], &row->chars[at], row->size - at + len);
-
-    // // // Insert string 's'
-    // memcpy(&row->chars[at], s, len);
-    // row->size += len;
-
-    // editorUpdateRow(row);
-// }
-
 /*
  * Add character `c` to `row` at given position `at`
  */
@@ -1243,14 +1224,13 @@ void editorDrawRows(struct abuf *ab) {
 
                     abAppend(ab, &c[i], 1);
                 }
+                // Set search result match color
                 else if (highlight[i] == HL_MATCH) {
                     // Only insert invert escape code when current color is not inverted
                     if (current_color != HL_MATCH) {
                         current_color = HL_MATCH;
                         abAppend(ab, "\x1b[m", 3);
                         abAppend(ab, "\x1b[7m", 4);
-                        // abAppend(ab, "\x1b[39m", 5);
-                        // abAppend(ab, "\x1b[m", 3);
                     }
 
                     abAppend(ab, &c[i], 1);
