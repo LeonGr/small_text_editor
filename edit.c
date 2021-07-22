@@ -1486,29 +1486,28 @@ char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
                         memcpy(beforePrompt, buf, promptIndex);
                         beforePrompt[promptIndex] = '\0';
 
-                        // Find the last space (or NULL) in the copy
-                        char *last_space_index = strrchr(beforePrompt, ' ');
+                        int last_separator_index = -1;
+                        for (int i = promptIndex - 1; i >= 0; i--) {
+                            char c = beforePrompt[i];
 
-                        if (last_space_index) {
-                            // Get the position of the space
-                            int pos = last_space_index - beforePrompt;
-
-                            if (pos + 1 == bufferLength) {
-                                // If the last space is at the end of the prompt input, delete all input
-                                buf[0] = '\0';
-                                promptIndex = 0;
-                                bufferLength = 0;
-                            } else {
-                                // Otherwise, delete from cursor to after the space
-                                buf[pos + 1] = '\0';
-                                promptIndex = pos + 1;
-                                bufferLength = pos + 1;
+                            if (isSeparator(c)) {
+                                last_separator_index = i;
+                                break;
                             }
-                        } else {
-                            // If there is no space, delete all input
+                        }
+
+                        if (last_separator_index == -1) {
                             buf[0] = '\0';
                             promptIndex = 0;
                             bufferLength = 0;
+                        } else if (promptIndex - 1 == last_separator_index) {
+                            buf[last_separator_index] = '\0';
+                            promptIndex = last_separator_index;
+                            bufferLength = last_separator_index;
+                        } else {
+                            buf[last_separator_index + 1] = '\0';
+                            promptIndex = last_separator_index + 1;
+                            bufferLength = last_separator_index + 1;
                         }
                     }
                     break;
