@@ -1007,9 +1007,9 @@ void editorFindCallback(char *query, int key) {
         return;
     } else if (key == '\r') {
         direction = 0;
-    } else if (key == RIGHT || key == DOWN) {
+    } else if (key == DOWN) {
         direction = 1;
-    } else if (key == LEFT || key == UP) {
+    } else if (key == UP) {
         direction = -1;
     } else {
         last_match = -1;
@@ -1071,7 +1071,7 @@ void editorFind() {
     int savedColumnOffset = E.col_offset;
     int savedRowOffset = E.row_offset;
 
-    char *query = editorPrompt("Search: %s (ESC = cancel, Arrows = next/prev, Enter = select)", 9, editorFindCallback);
+    char *query = editorPrompt("Search: %s (ESC = cancel, Arrow up/down = next/prev, Enter = select)", 9, editorFindCallback);
 
     if (query) {
         free(query);
@@ -1384,10 +1384,12 @@ char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
     size_t bufferLength = 0;
     buf[0] = '\0';
 
+    int promptIndex = 0;
+
     while (true) {
         // Draw cursor in prompt
         E.cy = E.screenrows + 2;
-        E.rx = bufferLength + inputPos + 1;
+        E.rx = promptIndex + inputPos + 1;
 
         // Continuously show prompt with current user input
         editorSetStatusMessage(prompt, buf);
@@ -1395,14 +1397,8 @@ char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
 
         int c = editorReadKey();
 
-        // Allow user to delete characters in prompt
-        if (c == DELETE || c == CTRL_KEY('h') || c == BACKSPACE) {
-            if (bufferLength != 0) {
-                buf[--bufferLength] = '\0';
-            }
-        }
         // Return NULL if the user presses escape
-        else if (c == '\x1b') {
+        if (c == '\x1b') {
             // Reset cursor position
             E.cy = savedCy;
             E.rx = savedRx;
@@ -1443,11 +1439,90 @@ char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
                 buf = realloc(buf, bufferSize);
             }
 
+            memmove(&buf[promptIndex + 1], &buf[promptIndex], bufferLength - promptIndex + 1);
+
             // Store character in output buffer
-            buf[bufferLength] = c;
+            buf[promptIndex] = c;
+            promptIndex++;
             // Add NUL after input
             bufferLength++;
             buf[bufferLength] = '\0';
+        }
+        // Handle control shortcuts
+        else {
+            switch (c) {
+                // Move to start of line
+                case CTRL_KEY('a'):
+                    promptIndex = 0;
+                    break;
+                // Move to end of line
+                case CTRL_KEY('e'):
+                    promptIndex = bufferLength;
+                    break;
+                case BACKSPACE:
+                case CTRL_KEY('h'):
+                    if (bufferLength != 0) {
+                        memmove(&buf[promptIndex], &buf[promptIndex + 1], bufferLength - promptIndex);
+                        buf[--bufferLength] = '\0';
+                        promptIndex--;
+                    }
+                    break;
+                case DELETE:
+                    if (promptIndex < bufferLength && bufferLength != 0) {
+                        memmove(&buf[promptIndex], &buf[promptIndex + 1], bufferLength - promptIndex);
+                        buf[--bufferLength] = '\0';
+                    }
+                    break;
+                // Delete to start of prompt
+                case CTRL_KEY('u'):
+                    bufferLength = 0;
+                    buf[bufferLength] = '\0';
+                    break;
+                // Delete word
+                case CTRL_KEY('w'):
+                    {
+                        // Copy string before the cursor
+                        char beforePrompt[bufferLength];
+                        memcpy(beforePrompt, buf, promptIndex);
+                        beforePrompt[promptIndex] = '\0';
+
+                        // Find the last space (or NULL) in the copy
+                        char *last_space_index = strrchr(beforePrompt, ' ');
+
+                        if (last_space_index) {
+                            // Get the position of the space
+                            int pos = last_space_index - beforePrompt;
+
+                            if (pos + 1 == bufferLength) {
+                                // If the last space is at the end of the prompt input, delete all input
+                                buf[0] = '\0';
+                                promptIndex = 0;
+                                bufferLength = 0;
+                            } else {
+                                // Otherwise, delete from cursor to after the space
+                                buf[pos + 1] = '\0';
+                                promptIndex = pos + 1;
+                                bufferLength = pos + 1;
+                            }
+                        } else {
+                            // If there is no space, delete all input
+                            buf[0] = '\0';
+                            promptIndex = 0;
+                            bufferLength = 0;
+                        }
+                    }
+                    break;
+                case LEFT:
+                    if (promptIndex > 0) {
+                        promptIndex--;
+                    }
+                    break;
+                case RIGHT:
+                    if (promptIndex < bufferLength) {
+                        promptIndex++;
+                    }
+                    break;
+            }
         }
 
         if (callback) {
