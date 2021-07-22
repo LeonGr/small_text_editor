@@ -48,6 +48,7 @@ enum editorKey {
 enum editorHighlight {
     HL_NORMAL = 0,
     HL_COMMENT,
+    HL_MLCOMMENT,
     HL_KEYWORD1,
     HL_KEYWORD2,
     HL_STRING,
@@ -71,16 +72,22 @@ struct editorSyntax {
     char **keywords;
     // String that starts a single line comment
     char *single_line_comment_start;
+    // String that starts a multi line comment
+    char *multi_line_comment_start;
+    // String that ends a multi line comment
+    char *multi_line_comment_end;
     // Flags that determine what to highlight
     int flags;
 };
 
 typedef struct erow {
+    int index;
     int size;
     char *chars;
     int renderSize;
     char *render;
     unsigned char *highlight;
+    bool open_comment;
 } erow;
 
 /*
@@ -151,7 +158,7 @@ struct editorSyntax HLDB[] = {
         "c",
         C_HL_extensions,
         C_HL_keywords,
-        "//",
+        "//", "/*", "*/",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
     },
 };
@@ -377,20 +384,27 @@ void editorUpdateSyntax(erow *row) {
 
     char **keywords = E.syntax->keywords;
 
-    char *single_line_comment_start = E.syntax->single_line_comment_start;
-    int comment_start_len = single_line_comment_start ? strlen(single_line_comment_start) : 0;
+    char *scs = E.syntax->single_line_comment_start;
+    char *mcs = E.syntax->multi_line_comment_start;
+    char *mce = E.syntax->multi_line_comment_end;
+
+    int scs_len = scs ? strlen(scs) : 0;
+    int mcs_len = mcs ? strlen(mcs) : 0;
+    int mce_len = mce ? strlen(mce) : 0;
 
     bool previous_is_separator = true;
-    char string_delimiter = '\0';
+    char in_string_delimiter = '\0';
+    bool in_comment = row->index > 0 && E.row[row->index - 1].open_comment;
 
     int i = 0;
     while (i < row->size) {
         char c = row->render[i];
         unsigned char previous_highlight = (i > 0) ? row->highlight[i - 1] : HL_NORMAL;
 
-        if (comment_start_len && !string_delimiter) {
+        // Single line comment
+        if (scs_len && !in_string_delimiter && !in_comment) {
             // Check if the current character position contains the comment start string
-            if (!strncmp(&row->render[i], single_line_comment_start, comment_start_len)) {
+            if (!strncmp(&row->render[i], scs, scs_len)) {
                 // Set the highlight of the rest of the line to comment
                 memset(&row->highlight[i], HL_COMMENT, row->renderSize - i);
                 // Don't apply highlighting to the rest of the row
@@ -398,9 +412,32 @@ void editorUpdateSyntax(erow *row) {
             }
         }
 
+        // Multi line comment
+        if (mcs_len && mcs_len && !in_string_delimiter) {
+            if (in_comment) {
+                row->highlight[i] = HL_MLCOMMENT;
+
+                if (!strncmp(&row->render[i], mce, mce_len)) {
+                    memset(&row->highlight[i], HL_COMMENT, mce_len);
+                    i += mce_len;
+                    in_comment = false;
+                    previous_is_separator = true;
+                    continue;
+                } else {
+                    i++;
+                    continue;
+                }
+            } else if (!strncmp(&row->render[i], mcs, mcs_len)) {
+                memset(&row->highlight[i], HL_COMMENT, mcs_len);
+                i += mcs_len;
+                in_comment = true;
+                continue;
+            }
+        }
+
         if (E.syntax->flags & HL_HIGHLIGHT_STRINGS) {
             // Check if we're in a string
-            if (string_delimiter) {
+            if (in_string_delimiter) {
                 row->highlight[i] = HL_STRING;
 
                 // An escape character started with '\' means that we should not stop the string highlighting
@@ -411,9 +448,9 @@ void editorUpdateSyntax(erow *row) {
                     continue;
                 }
 
-                // Reset string_delimiter if we reached the end delimeter
-                if (c == string_delimiter) {
-                    string_delimiter = '\0';
+                // Reset in_string_delimiter if we reached the end delimeter
+                if (c == in_string_delimiter) {
+                    in_string_delimiter = '\0';
                 }
 
                 i++;
@@ -422,7 +459,7 @@ void editorUpdateSyntax(erow *row) {
             } else {
                 // Check if this is the start of a string
                 if (c == '"' || c == '\'') {
-                    string_delimiter = c;
+                    in_string_delimiter = c;
                     row->highlight[i] = HL_STRING;
                     i++;
                     continue;
@@ -440,7 +477,7 @@ void editorUpdateSyntax(erow *row) {
             }
         }
 
-        if(previous_is_separator) {
+        if (previous_is_separator) {
             int j;
             for (j = 0; keywords[j]; j++) {
                 int keyword_len = strlen(keywords[j]);
@@ -470,6 +507,13 @@ void editorUpdateSyntax(erow *row) {
         previous_is_separator = isSeparator(c);
         i++;
     }
+
+    bool changed = row->open_comment != in_comment;
+    row->open_comment = in_comment;
+    // If the comment status changed, update syntax color
+    if (changed && row->index + 1 < E.numrows) {
+        editorUpdateSyntax(&E.row[row->index + 1]);
+    }
 }
 
 /*
@@ -479,6 +523,7 @@ void editorUpdateSyntax(erow *row) {
 int editorSyntaxToColor(int hl) {
     switch (hl) {
         case HL_COMMENT:
+        case HL_MLCOMMENT:
             return 36; // Cyan
         case HL_KEYWORD1:
             return 33; // Yellow
@@ -642,6 +687,12 @@ void editorInsertRow(int at, char *s, size_t len) {
     // Move all following rows to the next spot in memory
     memmove(&E.row[at + 1], &E.row[at], sizeof(erow) * (E.numrows - at));
 
+    for (int i = at + 1; i <= E.numrows; i++) {
+        E.row[i].index++;
+    }
+
+    E.row[at].index = at;
+
     E.row[at].size = len;
     E.row[at].chars = malloc(len + 1);
     memcpy(E.row[at].chars, s, len);
@@ -650,6 +701,8 @@ void editorInsertRow(int at, char *s, size_t len) {
     E.row[at].renderSize = 0;
     E.row[at].render = NULL;
     E.row[at].highlight = NULL;
+    E.row[at].open_comment = false;
+
     editorUpdateRow(&E.row[at]);
 
     E.numrows++;
@@ -677,6 +730,10 @@ void editorDeleteRow(int at) {
     editorFreeRow(&E.row[at]);
     // Move all rows after selected row one spot back in memory
     memmove(&E.row[at], &E.row[at + 1], sizeof(erow) * (E.numrows - at - 1));
+
+    for (int i = at; i < E.numrows - 1; i++) {
+        E.row[i].index--;
+    }
 
     E.numrows--;
     E.dirty = true;
