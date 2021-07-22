@@ -533,8 +533,8 @@ int editorSyntaxToColor(int hl) {
             return 35; // Magenta
         case HL_NUMBER:
             return 31; // Red
-        case HL_MATCH:
-            return 7; // Inverted
+        // case HL_MATCH:
+            // return 7; // Inverted
         default:
             return 37; // White
     }
@@ -1026,6 +1026,8 @@ void editorFindCallback(char *query, int key) {
         last_match = -1;
         direction = 1;
         return;
+    } else if (key == '\r') {
+        direction = 0;
     } else if (key == RIGHT || key == DOWN) {
         direction = 1;
     } else if (key == LEFT || key == UP) {
@@ -1241,6 +1243,18 @@ void editorDrawRows(struct abuf *ab) {
 
                     abAppend(ab, &c[i], 1);
                 }
+                else if (highlight[i] == HL_MATCH) {
+                    // Only insert invert escape code when current color is not inverted
+                    if (current_color != HL_MATCH) {
+                        current_color = HL_MATCH;
+                        abAppend(ab, "\x1b[m", 3);
+                        abAppend(ab, "\x1b[7m", 4);
+                        // abAppend(ab, "\x1b[39m", 5);
+                        // abAppend(ab, "\x1b[m", 3);
+                    }
+
+                    abAppend(ab, &c[i], 1);
+                }
                 // Set special text color
                 else {
                     int color = editorSyntaxToColor(highlight[i]);
@@ -1248,6 +1262,7 @@ void editorDrawRows(struct abuf *ab) {
                     // Only insert color escape code when current color is the current color
                     if (color != current_color) {
                         current_color = color;
+                        abAppend(ab, "\x1b[m", 3);
                         char buf[16];
                         int colorLength = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
                         abAppend(ab, buf, colorLength);
