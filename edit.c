@@ -533,8 +533,6 @@ int editorSyntaxToColor(int hl) {
             return 35; // Magenta
         case HL_NUMBER:
             return 31; // Red
-        // case HL_MATCH:
-            // return 7; // Inverted
         default:
             return 37; // White
     }
@@ -994,7 +992,7 @@ void editorFindCallback(char *query, int key) {
     static int saved_highlight_line;
     static char *saved_highlight = NULL;
 
-    // If there is a saved highlight, set if to the saved highlight line.
+    // If there is a saved highlight, set it to the saved highlight line.
     // This is done to remove the search result highlight from previous matches.
     if (saved_highlight) {
         memcpy(E.row[saved_highlight_line].highlight, saved_highlight, E.row[saved_highlight_line].renderSize);
@@ -1229,7 +1227,7 @@ void editorDrawRows(struct abuf *ab) {
                     // Only insert invert escape code when current color is not inverted
                     if (current_color != HL_MATCH) {
                         current_color = HL_MATCH;
-                        abAppend(ab, "\x1b[m", 3);
+                        abAppend(ab, "\x1b[34m", 5);
                         abAppend(ab, "\x1b[7m", 4);
                     }
 
@@ -1341,8 +1339,13 @@ void editorRefreshScreen() {
 
     // Draw cursor in correct position
     char buf[32];
-    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.row_offset) + 1,
-                                              (E.rx - E.col_offset) + 1);
+    if (!E.prompt) {
+        snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.row_offset) + 1,
+                                                  (E.rx - E.col_offset) + 1);
+    } else {
+        snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy,
+                                                  E.rx);
+    }
     abAppend(&ab, buf, strlen(buf));
 
     // show cursor after refeshing the screen
@@ -1383,8 +1386,8 @@ char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
 
     while (true) {
         // Draw cursor in prompt
-        E.cy = E.screencols - 1;
-        E.rx = bufferLength + inputPos;
+        E.cy = E.screenrows + 2;
+        E.rx = bufferLength + inputPos + 1;
 
         // Continuously show prompt with current user input
         editorSetStatusMessage(prompt, buf);
