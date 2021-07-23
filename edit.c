@@ -151,6 +151,7 @@ char *C_HL_keywords[] = {
 };
 
 /* Python highlighting */
+
 // Python file extensions
 char *Python_HL_extensions[] = { ".py", ".py3", NULL };
 char *Python_HL_keywords[] = {
@@ -158,6 +159,14 @@ char *Python_HL_keywords[] = {
     "False|", "None|", "True|", NULL
 };
 
+/* Rust highlighting */
+
+// Rust file extensions
+char *Rust_HL_extensions[] = { ".rs", NULL };
+char *Rust_HL_keywords[] = {
+    "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return", "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where", "while",
+    "AsMut|", "AsRef|", "BTreeMap|", "BTreeSet|", "BinaryHeap|", "Box|", "Clone|", "Copy|", "Default|", "Drop|", "Eq|", "Err|", "Extend|", "FnMut|", "FnOnce|", "Fn|", "From|", "HashMap|", "HashSet|", "Into|", "Iterator|", "LinkedList|", "None|", "Ok|", "Option|", "Ord|", "PartialEq|", "PartialOrd|", "Result|", "Self|", "Send|", "Sized|", "Some|", "String|", "Sync|", "ToOwned|", "Unpin|", "VecDeque|", "Vec|", "array|", "bool|", "char|", "f32|", "f64|", "false|", "fn|", "i128|", "i16|", "i32|", "i64|", "i8|", "isize|", "never|", "pointer|", "reference|", "slice|", "str|", "true|", "tuple|", "u128|", "u16|", "u32|", "u64|", "u8|", "unit|", "usize|", NULL
+};
 
 /*
  * highlight database
@@ -177,6 +186,13 @@ struct editorSyntax HLDB[] = {
         "#", "\"\"\"", "\"\"\"",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
     },
+    {
+        "Rust",
+        Rust_HL_extensions,
+        Rust_HL_keywords,
+        "//", "/*", "*/",
+        HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
+    }
 };
 
 #define NUM_HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
