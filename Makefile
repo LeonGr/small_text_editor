@@ -1,4 +1,4 @@
 CC = gcc
 
 edit: edit.c
-	$(CC) edit.c -o edit -Wall -Wextra -pedantic -std=c99
+	$(CC) edit.c -o edit -Wall -Wextra -pedantic -std=c99 -ggdb
