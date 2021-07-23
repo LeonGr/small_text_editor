@@ -1,3 +1,5 @@
 x search result highlighting
-- add syntax highlighting
+x add syntax highlighting
+- add highlighting for more languages
+- add treesitter support?
 - add vim-style mode(s)

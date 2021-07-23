@@ -22,7 +22,7 @@
 
 /*** defines ***/
 
-#define VERSION "0.0.1"
+#define VERSION "0.1.0"
 #define TAB_SIZE 4
 
 /* Get Ctrl key code by setting the upper 3 bits to 0 */
