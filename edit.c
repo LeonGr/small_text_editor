@@ -150,6 +150,15 @@ char *C_HL_keywords[] = {
     "bool|", "char|", "double|", "float|", "int|", "long|", "signed|", "unsigned|", "void|", NULL
 };
 
+/* Python highlighting */
+// Python file extensions
+char *Python_HL_extensions[] = { ".py", ".py3", NULL };
+char *Python_HL_keywords[] = {
+    "and", "as", "assert", "break", "class", "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while", "with", "yield",
+    "False|", "None|", "True|", NULL
+};
+
+
 /*
  * highlight database
  */
@@ -159,6 +168,13 @@ struct editorSyntax HLDB[] = {
         C_HL_extensions,
         C_HL_keywords,
         "//", "/*", "*/",
+        HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
+    },
+    {
+        "Python",
+        Python_HL_extensions,
+        Python_HL_keywords,
+        "#", "\"\"\"", "\"\"\"",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
     },
 };
@@ -368,7 +384,7 @@ int getWindowSize(int *rows, int *cols) {
 /*** syntax highlighting ***/
 
 bool isSeparator(int c) {
-    return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];\"", c) != NULL;
+    return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];:\"", c) != NULL;
 }
 
 /*
@@ -397,7 +413,7 @@ void editorUpdateSyntax(erow *row) {
     bool in_comment = row->index > 0 && E.row[row->index - 1].open_comment;
 
     int i = 0;
-    while (i < row->size) {
+    while (i < row->renderSize) {
         char c = row->render[i];
         unsigned char previous_highlight = (i > 0) ? row->highlight[i - 1] : HL_NORMAL;
 
@@ -1618,6 +1634,15 @@ void editorProcessKeypress() {
         case '\r':
             editorInsertNewline();
             break;
+
+#ifdef TABSPACE
+        // Tabs are spaces >:)
+        case '\t':
+            for (int i = 0; i < TAB_SIZE; i++) {
+                editorInsertChar(' ');
+            }
+            break;
+#endif
 
         // Quit on C-d
         case CTRL_KEY('d'):
