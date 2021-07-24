@@ -146,7 +146,7 @@ struct editorConfig E;
 // C/C++ file extensions
 char *C_HL_extensions[] = { ".c", ".h", ".cpp", NULL };
 char *C_HL_keywords[] = {
-    "break", "case", "class", "continue", "do", "else", "enum", "false", "for", "goto", "if", "return", "sizeof", "static", "struct", "switch", "true", "typedef", "union", "while",
+    "break", "case", "class", "continue", "do", "else", "enum", "false", "for", "goto", "if", "return", "sizeof", "struct", "switch", "true", "typedef", "union", "while",
     "auto|", "bool|", "char|", "const|", "double|", "float|", "int|", "long|", "register|", "short|", "signed|", "static|", "unsigned|", "void|", "volatile|", NULL
 };
 
