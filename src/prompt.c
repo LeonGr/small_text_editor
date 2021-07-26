@@ -18,10 +18,10 @@ char *editorPrompt(char *prompt, int inputPos, void (*callback)(char *, int)) {
     int savedRx = E.rx;
     E.prompt = true;
 
-    size_t bufferSize = 128;
+    int bufferSize = 128;
     char *buf = malloc(bufferSize);
 
-    size_t bufferLength = 0;
+    int bufferLength = 0;
     buf[0] = '\0';
 
     int promptIndex = 0;

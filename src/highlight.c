@@ -193,7 +193,7 @@ void editorSelectSyntaxHighlight() {
     // strrchr returns a pointerr to the last occurrence of the '.' in the filename, NULL if none
     char *extension = strrchr(E.filename, '.');
 
-    int entries = num_hldb_entries();
+    unsigned entries = num_hldb_entries();
 
     // Loop through supported highlights
     for (unsigned int i = 0; i < entries; i++) {
