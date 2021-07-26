@@ -1,6 +1,6 @@
-#include <stdlib.h>
 #include "highlight.h"
 #include "languages.h"
+#include <stdlib.h>
 
 /*** filetypes ***/
 

@@ -1,9 +1,9 @@
-#include <stdbool.h>
-#include "terminal.h"
 #include "editor.h"
-#include "render.h"
-#include "io.h"
 #include "input.h"
+#include "io.h"
+#include "render.h"
+#include "terminal.h"
+#include <stdbool.h>
 
 int main(int argc, char *argv[]) {
     enableRawMode();

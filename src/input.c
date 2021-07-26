@@ -1,11 +1,11 @@
-#include <unistd.h>
-#include <stdlib.h>
-#include <errno.h>
-#include "terminal.h"
 #include "editor.h"
-#include "io.h"
 #include "input.h"
+#include "io.h"
 #include "search.h"
+#include "terminal.h"
+#include <errno.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 extern struct editorConfig E;
 

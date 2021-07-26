@@ -1,10 +1,10 @@
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
 #include "editor.h"
-#include "render.h"
 #include "highlight.h"
 #include "input.h"
+#include "render.h"
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 extern struct editorConfig E;
 

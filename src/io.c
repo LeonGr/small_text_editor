@@ -4,16 +4,16 @@
 #define _BSD_SOURCE
 #define _GNU_SOURCE
 
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
 #include "editor.h"
-#include "terminal.h"
 #include "highlight.h"
 #include "prompt.h"
+#include "terminal.h"
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 extern struct editorConfig E;
 

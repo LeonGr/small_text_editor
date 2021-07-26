@@ -1,14 +1,14 @@
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
-#include <ctype.h>
-#include <termios.h>
 #include "editor.h"
-#include "terminal.h"
 #include "highlight.h"
+#include "terminal.h"
+#include <ctype.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <termios.h>
+#include <time.h>
 
 struct editorConfig E;
 

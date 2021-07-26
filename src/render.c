@@ -1,11 +1,11 @@
-#include <ctype.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdio.h>
 #include "editor.h"
 #include "highlight.h"
 #include "languages.h"
 #include "main.h"
+#include <ctype.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 extern struct editorConfig E;
 

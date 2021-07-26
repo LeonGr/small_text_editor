@@ -1,9 +1,9 @@
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <termios.h>
-#include <sys/ioctl.h>
 #include "editor.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <unistd.h>
 
 extern struct editorConfig E;
 

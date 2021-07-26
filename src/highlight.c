@@ -1,9 +1,9 @@
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <stdbool.h>
 #include "highlight.h"
 #include "languages.h"
+#include <ctype.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 
 extern struct editorConfig E;
 
