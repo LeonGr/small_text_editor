@@ -1,3 +1,9 @@
+// feature test macros
+// https://www.gnu.org/software/libc/manual/html_node/Feature-Test-Macros.html
+#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
