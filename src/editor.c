@@ -10,7 +10,7 @@
 #include "terminal.h"
 #include "highlight.h"
 
-extern struct editorConfig E;
+struct editorConfig E;
 
 /*
  * Determine what characters to render based on the characters of `row`
