@@ -8,6 +8,7 @@
 #include <termios.h>
 #include "editor.h"
 #include "terminal.h"
+#include "highlight.h"
 
 extern struct editorConfig E;
 
@@ -18,7 +19,6 @@ void editorUpdateRow(erow *row) {
     // Count the tabs in the row
     int tabs = 0;
     int ctrl_chars = 0;
-    int non_ascii = 0;
     for (int i = 0; i < row->size; i++) {
         char c = row->chars[i];
 

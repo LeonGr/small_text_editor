@@ -2,6 +2,8 @@
 #include "terminal.h"
 #include "editor.h"
 #include "render.h"
+#include "io.h"
+#include "input.h"
 
 // feature test macros
 // https://www.gnu.org/software/libc/manual/html_node/Feature-Test-Macros.html

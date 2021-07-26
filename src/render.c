@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdio.h>
 #include "editor.h"
+#include "highlight.h"
+#include "languages.h"
 
 #define VERSION "0.1.0"
 
