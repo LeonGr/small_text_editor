@@ -5,8 +5,7 @@
 #include "editor.h"
 #include "highlight.h"
 #include "languages.h"
-
-#define VERSION "0.1.0"
+#include "main.h"
 
 extern struct editorConfig E;
 
