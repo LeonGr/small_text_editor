@@ -1,0 +1,195 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-c",
+      "-o",
+      "build/./src/languages.c.o",
+      "src/languages.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/src/languages.c",
+    "output": "/home/leon/Documents/small_text_editor/build/./src/languages.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-c",
+      "-o",
+      "build/./src/render.c.o",
+      "src/render.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/src/render.c",
+    "output": "/home/leon/Documents/small_text_editor/build/./src/render.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-c",
+      "-o",
+      "build/./src/prompt.c.o",
+      "src/prompt.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/src/prompt.c",
+    "output": "/home/leon/Documents/small_text_editor/build/./src/prompt.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-c",
+      "-o",
+      "build/./src/highlight.c.o",
+      "src/highlight.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/src/highlight.c",
+    "output": "/home/leon/Documents/small_text_editor/build/./src/highlight.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-c",
+      "-o",
+      "build/./src/input.c.o",
+      "src/input.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/src/input.c",
+    "output": "/home/leon/Documents/small_text_editor/build/./src/input.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-c",
+      "-o",
+      "build/./src/io.c.o",
+      "src/io.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/src/io.c",
+    "output": "/home/leon/Documents/small_text_editor/build/./src/io.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-c",
+      "-o",
+      "build/./src/main.c.o",
+      "src/main.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/src/main.c",
+    "output": "/home/leon/Documents/small_text_editor/build/./src/main.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-c",
+      "-o",
+      "build/./src/search.c.o",
+      "src/search.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/src/search.c",
+    "output": "/home/leon/Documents/small_text_editor/build/./src/search.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-c",
+      "-o",
+      "build/./src/terminal.c.o",
+      "src/terminal.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/src/terminal.c",
+    "output": "/home/leon/Documents/small_text_editor/build/./src/terminal.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-c",
+      "-o",
+      "build/./src/editor.c.o",
+      "src/editor.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/src/editor.c",
+    "output": "/home/leon/Documents/small_text_editor/build/./src/editor.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-c",
+      "./build/./src/languages.c.o",
+      "./build/./src/render.c.o",
+      "./build/./src/prompt.c.o",
+      "./build/./src/highlight.c.o",
+      "./build/./src/input.c.o",
+      "./build/./src/io.c.o",
+      "./build/./src/main.c.o",
+      "./build/./src/search.c.o",
+      "./build/./src/terminal.c.o",
+      "./build/./src/editor.c.o",
+      "./lib/libtree-sitter.a",
+      "-o",
+      "build/edit",
+      "./lib/parser.c"
+    ],
+    "directory": "/home/leon/Documents/small_text_editor",
+    "file": "/home/leon/Documents/small_text_editor/./lib/parser.c",
+    "output": "/home/leon/Documents/small_text_editor/build/edit"
+  }
+]
