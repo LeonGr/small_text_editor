@@ -9,4 +9,4 @@ Run `make`.
 
 ## usage
 
-Run `edit`.
+Run `build/edit <filename>`.
