@@ -1,5 +1,19 @@
 x search result highlighting
 x add syntax highlighting
-- add highlighting for more languages
-- add treesitter support?
+~ add highlighting for languages
+    x C/C++
+    x Python
+    x Rust
+    x Haskell
+- add treesitter support
+    x parse (c) syntax into TSTree
+    ~ update TSTree on editor changes
+        - editorInsertRow
+        - editorDeleteRow
+        x editorRowInsertChar
+        - editorRowAppendString
+        - editorRowDeleteChar
+        - editorClearRowToStart
+    - query TSTree?
+    - highlight TSNode query results?
 - add vim-style mode(s)
