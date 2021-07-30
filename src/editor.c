@@ -9,6 +9,7 @@
 #include <string.h>
 #include <termios.h>
 #include <time.h>
+#include <tree_sitter/api.h>
 
 struct editorConfig E;
 
@@ -146,6 +147,8 @@ void editorRowInsertChar(erow *row, int at, char c) {
     row->size++;
 
     row->chars[at] = c;
+
+    editorUpdateSyntaxTree(row->index, at, row->index, at, row->index, at + 1);
 
     editorUpdateRow(row);
     E.dirty = true;

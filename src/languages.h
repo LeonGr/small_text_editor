@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <tree_sitter/api.h>
 
 #ifndef LANGUAGES_H
 #define LANGUAGES_H
@@ -20,6 +21,13 @@ struct editorSyntax {
     char *multi_line_comment_end;
     // Flags that determine what to highlight
     int flags;
+
+    // tree-sitter syntax tree
+    TSTree *tree;
+    // current tree-sitter language
+    TSLanguage *language;
+    // tree-sitter parser for current language
+    TSParser *parser;
 };
 
 extern struct editorSyntax HLDB[];

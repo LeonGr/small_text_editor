@@ -77,6 +77,8 @@ void editorOpen(char *filename) {
         }
     }
 
+    editorInitSyntaxTree();
+
     free(line);
     fclose(fp);
     E.dirty = false;

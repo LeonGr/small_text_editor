@@ -1,9 +1,11 @@
 #include "highlight.h"
+#include "io.h"
 #include "languages.h"
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <tree_sitter/api.h>
 
 extern struct editorConfig E;
 
@@ -25,6 +27,7 @@ void editorUpdateSyntax(erow *row) {
     // Fill array with default highlight
     memset(row->highlight, HL_NORMAL, row->renderSize);
 
+    return;
     if (E.syntax == NULL) return;
 
     char **keywords = E.syntax->keywords;
@@ -221,4 +224,65 @@ void editorSelectSyntaxHighlight() {
             j++;
         }
     }
+}
+
+void editorPrintSyntaxTree() {
+    TSNode root = ts_tree_root_node(E.syntax->tree);
+
+    char *string = ts_node_string(root);
+    printf("Syntax tree:\r\n%s\r\n", string);
+}
+
+void editorPrintSourceCode() {
+    // printf("Syntax: %s\r\n", source_code);
+    for (int i = 0; i < E.numrows; i++) {
+        erow *row = &E.row[i];
+        printf("%s\r\n", row->chars);
+    }
+}
+
+void editorInitSyntaxTree() {
+    TSParser *parser = ts_parser_new();
+
+    printf("Filetype: %s\r\n", E.syntax->filetype);
+
+    if (!strcmp(E.syntax->filetype, "c")) {
+        TSLanguage *tree_sitter_c();
+        E.syntax->language = tree_sitter_c();
+        ts_parser_set_language(parser, E.syntax->language);
+    } else {
+        return;
+    }
+
+    int len;
+    char *source_code = editorRowsToString(&len);
+
+    // printf("Syntax: %s\r\n", source_code);
+    editorPrintSourceCode();
+
+    TSTree *tree = ts_parser_parse_string(parser, NULL, source_code, len);
+
+    E.syntax->tree = tree;
+    E.syntax->parser = parser;
+
+    editorPrintSyntaxTree();
+}
+
+void editorUpdateSyntaxTree(int start_row, int start_column, int old_end_row, int old_end_column, int new_end_row, int new_end_column) {
+    TSInputEdit edit;
+    edit.start_point = (TSPoint){ start_row, start_column };
+    edit.old_end_point = (TSPoint){ old_end_row, old_end_column };
+    edit.new_end_point = (TSPoint){ new_end_row, new_end_column };
+
+    ts_tree_edit(E.syntax->tree, &edit);
+
+    int len;
+    char *source_code = editorRowsToString(&len);
+
+    editorPrintSourceCode();
+
+    TSTree *tree = ts_parser_parse_string(E.syntax->parser, E.syntax->tree, source_code, len);
+    E.syntax->tree = tree;
+
+    editorPrintSyntaxTree();
 }
