@@ -78,6 +78,7 @@ void editorOpen(char *filename) {
     }
 
     editorInitSyntaxTree();
+    editorUpdateHighlight();
 
     free(line);
     fclose(fp);

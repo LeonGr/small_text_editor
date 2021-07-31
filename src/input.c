@@ -1,6 +1,7 @@
 #include "editor.h"
 #include "input.h"
 #include "io.h"
+#include "render.h"
 #include "search.h"
 #include "terminal.h"
 #include <errno.h>
@@ -156,6 +157,10 @@ void editorProcessKeypress() {
     switch (c) {
         case '\r':
             editorInsertNewline();
+            break;
+
+        case CTRL_KEY('r'):
+            editorRefreshScreen();
             break;
 
 #ifdef TABSPACE

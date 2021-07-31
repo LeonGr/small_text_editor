@@ -59,7 +59,7 @@ void editorUpdateRow(erow *row) {
     row->render[index] = '\0';
     row->renderSize = index;
 
-    editorUpdateSyntax(row);
+    // editorUpdateSyntax(row);
 }
 
 /*
