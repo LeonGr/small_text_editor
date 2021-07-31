@@ -1,32 +1,37 @@
-TARGET_EXEC ?= edit
+TARGET  := ./build/edit
+EXT     := c cc
 
-BUILD_DIR ?= ./build
-SRC_DIRS ?= ./src
+SRC_DIR := src
+OBJ_DIR := build
+DEP_DIR := lib
 
-SRCS := $(shell find $(SRC_DIRS) -name *.c)
-OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
-DEPS := $(OBJS:.o=.d)
+CPPFLAGS  = -MMD -MP -MF $(@:$(OBJ_DIR)/%.o=$(DEP_DIR)/%.d)
+CFLAGS   := -Wall -Wextra -pedantic -ggdb -pthread
+CXXFLAGS := -std=c++11 $(CFLAGS)
+LDFLAGS  := -pthread
 
-INC_DIRS := $(shell find $(SRC_DIRS) -type d)
-INC_FLAGS := $(addprefix -I,$(INC_DIRS))
+SOURCE := $(foreach ext, $(EXT), $(wildcard $(SRC_DIR)/*.$(ext)))
+OBJECT := $(SOURCE:$(SRC_DIR)/%=$(OBJ_DIR)/%.o)
+DEPEND := $(OBJECT:$(OBJ_DIR)/%.o=$(DEP_DIR)/%.d)
 
-LDFLAGS = ./lib/libtree-sitter.a ./lib/parser.c
+define rule =
+$(OBJ_DIR)/%.$(1).o: $(SRC_DIR)/%.$(1) | $(OBJ_DIR) $(DEP_DIR)
+	$$(COMPILE.$(1)) $$< -o $$@
+endef
 
-$(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
-	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+.PHONY: all clean
 
-CFLAGS = -Wall -Wextra -pedantic -std=c99 -ggdb
+all: $(TARGET)
 
-# c source
-$(BUILD_DIR)/%.c.o: %.c
-	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(TARGET): $(OBJECT)
+	$(CXX) $(LDFLAGS) $^ -o $@ ./lib/libtree-sitter.a
 
-.PHONY: clean
+$(foreach ext, $(EXT), $(eval $(call rule,$(ext))))
+
+$(OBJ_DIR) $(DEP_DIR):
+	mkdir -p $@
+
+-include $(DEPEND)
 
 clean:
-	$(RM) -r $(BUILD_DIR)
-
--include $(DEPS)
-
-MKDIR_P ?= mkdir -p
+	$(RM) -r $(TARGET) $(OBJ_DIR)
