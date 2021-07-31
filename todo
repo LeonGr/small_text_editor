@@ -7,6 +7,11 @@ x add syntax highlighting
     x Haskell
 - add treesitter support
     x parse (c) syntax into TSTree
+    - port old languages
+        x C
+        x Python
+        ~ Rust
+        - Haskell
     ~ update TSTree on editor changes
         - editorInsertRow
         - editorDeleteRow
@@ -14,6 +19,4 @@ x add syntax highlighting
         - editorRowAppendString
         - editorRowDeleteChar
         - editorClearRowToStart
-    - query TSTree?
-    - highlight TSNode query results?
 - add vim-style mode(s)
