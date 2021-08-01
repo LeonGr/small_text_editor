@@ -755,8 +755,7 @@ void editorInitSyntaxTree() {
         TSLanguage *tree_sitter_rust();
         E.syntax->language = tree_sitter_rust();
         ts_parser_set_language(parser, E.syntax->language);
-    }
-    else {
+    } else {
         return;
     }
 
@@ -770,7 +769,9 @@ void editorInitSyntaxTree() {
     E.syntax->tree = tree;
     E.syntax->parser = parser;
 
-    editorPrintSyntaxTree();
+    // editorPrintSyntaxTree();
+
+    editorUpdateHighlight();
 }
 
 void editorUpdateSyntaxTree(int start_row, int start_column, int old_end_row, int old_end_column, int new_end_row, int new_end_column) {
@@ -793,7 +794,7 @@ void editorUpdateSyntaxTree(int start_row, int start_column, int old_end_row, in
     TSTree *tree = ts_parser_parse_string(E.syntax->parser, E.syntax->tree, source_code, len);
     E.syntax->tree = tree;
 
-    editorPrintSyntaxTree();
+    // editorPrintSyntaxTree();
 
     editorUpdateHighlight();
 }

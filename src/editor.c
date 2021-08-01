@@ -148,9 +148,10 @@ void editorRowInsertChar(erow *row, int at, char c) {
 
     row->chars[at] = c;
 
+    editorUpdateRow(row);
+
     editorUpdateSyntaxTree(row->index, at, row->index, at, row->index, at + 1);
 
-    editorUpdateRow(row);
     E.dirty = true;
 }
 
