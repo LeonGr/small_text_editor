@@ -10,7 +10,7 @@ x add syntax highlighting
     - port old languages
         x C
         x Python
-        ~ Rust
+        x Rust
         - Haskell
     ~ update TSTree on editor changes
         - editorInsertRow
@@ -19,4 +19,10 @@ x add syntax highlighting
         - editorRowAppendString
         - editorRowDeleteChar
         - editorClearRowToStart
+- add more color support
+    - add more highlight groups
+    - add 256-color
+    - add TrueColor
+- add highlight configuration
+    - pick filetype
 - add vim-style mode(s)
