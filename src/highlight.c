@@ -309,7 +309,7 @@ void editorHighlightSubtree(TSNode root) {
                 const char *parent_type = ts_node_type(parent);
 
                 // If current node is a nested scoped identifier, highlight whole node
-                if (inStringArray(parent_type, (char*[]) { "scoped_identifier", "scoped_use_list" })) {
+                if (inStringArray(parent_type, (char*[]) { "scoped_identifier", "scoped_use_list", NULL })) {
                     highlight = HL_COMMENT;
                 }
                 // If parent is a use wildcard, determine highlight based on case
@@ -328,7 +328,7 @@ void editorHighlightSubtree(TSNode root) {
                         highlight = HL_COMMENT;
                     }
                 }
-                // Otherwise, highlight both the path and name
+                // Otherwise, highlight both the path and name (if not a function)
                 else {
                     char *field_name = "path";
                     TSNode path_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
@@ -336,39 +336,22 @@ void editorHighlightSubtree(TSNode root) {
                     TSPoint path_end = ts_node_end_point(path_child);
                     erow *path_row = &E.row[path_start.row];
 
-                    for (int c = path_start.column; c < path_end.column; c++) {
+                    for (uint32_t c = path_start.column; c < path_end.column; c++) {
                         path_row->highlight[c] = HL_COMMENT;
                     }
 
-                    field_name = "name";
-                    TSNode name_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
+                    if (strcmp(parent_type, "call_expression")) {
+                        field_name = "name";
+                        TSNode name_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
 
-                    TSPoint name_start = ts_node_start_point(name_child);
-                    TSPoint name_end = ts_node_end_point(name_child);
-                    erow *name_row = &E.row[name_start.row];
+                        TSPoint name_start = ts_node_start_point(name_child);
+                        TSPoint name_end = ts_node_end_point(name_child);
+                        erow *name_row = &E.row[name_start.row];
 
-                    for (int c = name_start.column; c < name_end.column; c++) {
-                        name_row->highlight[c] = HL_KEYWORD2;
+                        for (uint32_t c = name_start.column; c < name_end.column; c++) {
+                            name_row->highlight[c] = HL_KEYWORD2;
+                        }
                     }
-                }
-            }
-        }
-
-        // use declaration (Rust)
-        else if (!strcmp(type, "use_declaration")) {
-            TSNode scoped_identifier_child = ts_node_child(root, 1);
-
-            if (!ts_node_is_null(scoped_identifier_child)) {
-                char *field_name = "name";
-                TSNode name_child = ts_node_child_by_field_name(scoped_identifier_child, field_name, strlen(field_name));
-                if (!ts_node_is_null(name_child)) {
-                    TSPoint name_start = ts_node_start_point(name_child);
-                    TSPoint name_end = ts_node_end_point(name_child);
-                    erow *row = &E.row[name_start.row];
-
-                    start = name_start;
-                    start = name_start;
-                    highlight = HL_KEYWORD2;
                 }
             }
         }
@@ -394,45 +377,6 @@ void editorHighlightSubtree(TSNode root) {
                 }
             }
         }
-
-        // else if (!strcmp(type, "identifier")) {
-            // TSNode parent = ts_node_parent(root);
-
-            // if (!ts_node_is_null(parent)) {
-                // const char *parent_type = ts_node_type(parent);
-
-                // if (!strcmp(parent_type, "scoped_identifier")) {
-
-                    // TSNode grandparent = ts_node_parent(parent);
-
-                    // if (!ts_node_is_null(grandparent)) {
-
-                        // const char *grandparent_type = ts_node_type(grandparent);
-
-                        // if (strcmp(grandparent_type, "scoped_identifier")) {
-                            // erow *row = &E.row[start.row];
-                            // char first = row->chars[start.column];
-
-                            // if (first > 65 && first < 91) {
-                                // // Uppercase
-                                // highlight = HL_KEYWORD2;
-                            // } else {
-                                // highlight = HL_COMMENT;
-                            // }
-                                    // // highlight = HL_KEYWORD2;
-                        // }
-
-                    // }
-                    // // char *field_name = "name";
-                    // // TSNode name_child = ts_node_child_by_field_name(parent, field_name, strlen(field_name));
-
-                    // // if (ts_node_eq(name_child, root)) {
-                        // // highlight = HL_KEYWORD2;
-                    // // }
-
-                // }
-            // }
-        // }
     }
 
     // Python
@@ -786,6 +730,15 @@ void editorPrintSourceCode() {
 }
 
 void editorInitSyntaxTree() {
+    if (E.syntax == NULL) {
+        for (int i = 0; i < E.numrows; i++) {
+            erow *row = &E.row[i];
+            row->highlight = realloc(row->highlight, row->renderSize);
+            memset(row->highlight, HL_NORMAL, row->renderSize);
+        }
+        return;
+    }
+
     TSParser *parser = ts_parser_new();
 
     printf("Filetype: %s\r\n", E.syntax->filetype);

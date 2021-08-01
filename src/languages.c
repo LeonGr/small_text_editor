@@ -31,10 +31,6 @@ char *Rust_HL_keyword1[] = { "as", "async", "await", "break", "const", "continue
 char *Rust_HL_keyword2[] = { "false", "true", "None", "Some", "Ok", "Err", NULL };
 char *Rust_HL_syntax1[] = { "(", ")", "{", "}", "[", "]", "<", ">", ";", ".", "::", "&", NULL };
 char *Rust_HL_syntax2[] = { "?", ":", "->", "=>", "#", NULL };
-// char *Rust_HL_keywords[] = {
-    // "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return", "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where", "while",
-    // "AsMut|", "AsRef|", "BTreeMap|", "BTreeSet|", "BinaryHeap|", "Box|", "Clone|", "Copy|", "Default|", "Drop|", "Eq|", "Err|", "Extend|", "FnMut|", "FnOnce|", "Fn|", "From|", "HashMap|", "HashSet|", "Into|", "Iterator|", "LinkedList|", "None|", "Ok|", "Option|", "Ord|", "PartialEq|", "PartialOrd|", "Result|", "Self|", "Send|", "Sized|", "Some|", "String|", "Sync|", "ToOwned|", "Unpin|", "VecDeque|", "Vec|", "array|", "bool|", "char|", "f32|", "f64|", "false|", "fn|", "i128|", "i16|", "i32|", "i64|", "i8|", "isize|", "never|", "pointer|", "reference|", "slice|", "str|", "true|", "tuple|", "u128|", "u16|", "u32|", "u64|", "u8|", "unit|", "usize|", NULL
-// };
 
 // /* Haskell highlighting */
 // 
