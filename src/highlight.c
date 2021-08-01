@@ -774,6 +774,10 @@ void editorInitSyntaxTree() {
 }
 
 void editorUpdateSyntaxTree(int start_row, int start_column, int old_end_row, int old_end_column, int new_end_row, int new_end_column) {
+    if (E.syntax == NULL) {
+        return;
+    }
+
     TSInputEdit edit;
     edit.start_point = (TSPoint){ start_row, start_column };
     edit.old_end_point = (TSPoint){ old_end_row, old_end_column };
