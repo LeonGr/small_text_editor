@@ -7,7 +7,8 @@ x add syntax highlighting
     x Haskell
 - add treesitter support
     x parse (c) syntax into TSTree
-    - port old languages
+    - Figure out how to properly highlight differently rendered characters
+    ~ port old languages
         x C
         x Python
         x Rust
