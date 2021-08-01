@@ -114,6 +114,22 @@ void editorDrawRows(struct abuf *ab) {
                 abAppend(ab, "~", 1);
             }
         } else {
+            // Draw line numbers
+            char max_line_nr[16];
+            snprintf(max_line_nr, sizeof(max_line_nr), "%d", E.numrows);
+            int max_line_nr_len = strlen(max_line_nr);
+
+            char line_nr_col_width_format[16];
+            snprintf(line_nr_col_width_format, sizeof(line_nr_col_width_format), "\x1b[7m%%%dd \x1b[m ", max_line_nr_len);
+
+            char line_nr[16];
+            int line_number_len = snprintf(line_nr, sizeof(line_nr), line_nr_col_width_format, y + E.row_offset);
+            // subtract size of escape characters
+            E.line_nr_len = line_number_len - 7;
+            abAppend(ab, line_nr, line_number_len);
+
+            // E.line_nr_len = 0;
+
             int len = E.row[filerow].renderSize - E.col_offset;
             if (len < 0) {
                 len = 0;
@@ -281,7 +297,7 @@ void editorRefreshScreen() {
     char buf[32];
     if (!E.prompt) {
         snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.row_offset) + 1,
-                                                  (E.rx - E.col_offset) + 1);
+                                                  (E.rx - E.col_offset) + 1 + E.line_nr_len);
     } else {
         snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy,
                                                   E.rx);

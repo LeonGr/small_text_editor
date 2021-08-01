@@ -43,6 +43,9 @@ typedef struct editorConfig {
     // Pointer to rows
     erow *row;
 
+    // Width of line number column
+    int line_nr_len;
+
     // Set to true if text buffer has been modified since opening or saving
     bool dirty;
     bool forceQuit;

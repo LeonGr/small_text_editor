@@ -320,6 +320,8 @@ void initEditor() {
     E.numrows = 0;
     E.row = NULL;
 
+    E.line_nr_len = 0;
+
     E.dirty = false;
     E.forceQuit = false;
 
