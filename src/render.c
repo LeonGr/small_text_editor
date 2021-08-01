@@ -120,12 +120,13 @@ void editorDrawRows(struct abuf *ab) {
             int max_line_nr_len = strlen(max_line_nr);
 
             char line_nr_col_width_format[16];
-            snprintf(line_nr_col_width_format, sizeof(line_nr_col_width_format), "\x1b[7m%%%dd \x1b[m ", max_line_nr_len);
+            int line_nr_format_len = snprintf(line_nr_col_width_format, sizeof(line_nr_col_width_format), "%%%dd  ", max_line_nr_len);
+            // int line_nr_format_len = snprintf(line_nr_col_width_format, sizeof(line_nr_col_width_format), "\x1b[7m%%%dd \x1b[m ", max_line_nr_len);
 
             char line_nr[16];
             int line_number_len = snprintf(line_nr, sizeof(line_nr), line_nr_col_width_format, y + E.row_offset);
             // subtract size of escape characters
-            E.line_nr_len = line_number_len - 7;
+            E.line_nr_len = line_number_len - (line_nr_format_len - max_line_nr_len - 2);
             abAppend(ab, line_nr, line_number_len);
 
             // E.line_nr_len = 0;
