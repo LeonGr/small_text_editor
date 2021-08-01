@@ -39,7 +39,7 @@ void editorHighlightSubtree(TSNode root) {
     }
 
     const char *type = ts_node_type(root);
-    printf("node type: %s\r\n", type);
+    printf("node type: \t'%s'\r\n", type);
 
     uint32_t child_count = ts_node_child_count(root);
 
@@ -50,15 +50,22 @@ void editorHighlightSubtree(TSNode root) {
 
     int highlight = HL_NORMAL;
 
+    /*
+     * Direct language agnostic highlighting
+     */
     // Number
-    if (inStringArray(type, (char*[]) { "number_literal", "integer", "float", NULL })) {
+    if (inStringArray(type, (char*[]) { "number_literal", "integer", "float", "integer_literal", NULL })) {
         highlight = HL_NUMBER;
     }
     // storage, type qualifier
     else if (inStringArray(type, (char*[]) { "storage_class_specifier", "type_qualifier", NULL })) {
         highlight = HL_KEYWORD2;
     }
-    // compiler info
+    // keywords type 1
+    else if (inStringArray(type, E.syntax->keyword1)) {
+        highlight = HL_KEYWORD1;
+    }
+    // keywords type 2
     else if (inStringArray(type, E.syntax->keyword2)) {
         highlight = HL_KEYWORD2;
     }
@@ -66,64 +73,15 @@ void editorHighlightSubtree(TSNode root) {
     else if (inStringArray(type, (char*[]) { "primitive_type", "type_identifier", "sized_type_specifier", NULL })) {
         highlight = HL_KEYWORD2;
     }
-    // return
-    else if (!strcmp(type, "return_statement")) {
-        highlight = HL_KEYWORD2;
-        TSNode return_child = ts_node_child(root, 0);
-
-        if (!ts_node_is_null(return_child)) {
-            start = ts_node_start_point(return_child);
-            end = ts_node_end_point(return_child);
-        }
-    }
-    // except (Python)
-    else if (!strcmp(type, "except_clause")) {
-        highlight = HL_KEYWORD2;
-        TSNode return_child = ts_node_child(root, 1);
-
-        if (!ts_node_is_null(return_child)) {
-            start = ts_node_start_point(return_child);
-            end = ts_node_end_point(return_child);
-        }
-    }
-    // keyword
-    else if (inStringArray(type, E.syntax->keyword1)) {
-        highlight = HL_KEYWORD1;
-    }
-    // function name
-    else if (inStringArray(type, (char*[]) { "function_declarator", "call_expression", "call", NULL })) {
-        highlight = HL_FUNCTION;
-        TSNode function_child = ts_node_child(root, 0);
-
-        if (!strcmp(type, "call")) {
-            if (!ts_node_is_null(function_child)) {
-                char *field_name = "attribute";
-                TSNode attribute_child = ts_node_child_by_field_name(function_child, field_name, strlen(field_name));
-                if (!ts_node_is_null(attribute_child)) {
-                    start = ts_node_start_point(attribute_child);
-                    end = ts_node_end_point(attribute_child);
-                } else {
-                    start = ts_node_start_point(function_child);
-                    end = ts_node_end_point(function_child);
-                }
-            }
-        } else {
-            if (!ts_node_is_null(function_child)) {
-                start = ts_node_start_point(function_child);
-                end = ts_node_end_point(function_child);
-            }
-        }
-
-    }
     // string
-    else if (inStringArray(type, (char*[]) { "string_literal", "system_lib_string", "char_literal", "string", NULL })) {
+    else if (inStringArray(type, (char*[]) { "string_literal", "system_lib_string", "char_literal", "string", "raw_string_literal", NULL })) {
         highlight = HL_STRING;
     }
     else if (!strcmp(type, "escape_sequence")) {
         highlight = HL_SYNTAX;
     }
     // comment
-    else if (!strcmp(type, "comment")) {
+    else if (inStringArray(type, (char*[]) { "comment", "line_comment", NULL })) {
         highlight = HL_COMMENT;
     }
     // syntax separators
@@ -138,36 +96,33 @@ void editorHighlightSubtree(TSNode root) {
         highlight = HL_KEYWORD1;
         end.column = start.column + 1;
     }
-    // fields
-    else if (!strcmp(type, "field_identifier")) {
-        highlight = HL_FIELD;
+    else if (!strcmp(type, "null")) {
+        highlight = HL_CONSTANT;
     }
-    // the python parser does not explicitely mark fields, but uses arguments
-    else if (!strcmp(type, "attribute")) {
 
-        // functions can also be arguments, ignore if attribute is followed by argument list
-        TSNode sibling = ts_node_next_sibling(root);
-        const char *sibling_type = "";
+    /*
+     * Node child language agnostic highlighting
+     */
+    // return
+    else if (!strcmp(type, "return_statement")) {
+        TSNode return_child = ts_node_child(root, 0);
 
-        if (!ts_node_is_null(sibling)) {
-             sibling_type = ts_node_type(sibling);
-        }
-
-        // If there is no sibling or the sibling is not an argument list, find and highlight the field
-        if (strcmp(sibling_type, "argument_list")) {
-            char *field_name = "attribute";
-            TSNode attribute_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
-
-            if (!ts_node_is_null(attribute_child)) {
-                highlight = HL_FIELD;
-                start = ts_node_start_point(attribute_child);
-                end = ts_node_end_point(attribute_child);
-            }
+        if (!ts_node_is_null(return_child)) {
+            highlight = HL_KEYWORD2;
+            start = ts_node_start_point(return_child);
+            end = ts_node_end_point(return_child);
         }
     }
-    // constants
+
+    /*
+     * Complex language agnostic highlighting
+     */
+
+    // Special identifiers
     else if (!strcmp(type, "identifier")) {
         int len = end.column - start.column;
+
+        // Constants
         if (len > 1) {
             erow *row = &E.row[start.row];
 
@@ -182,22 +137,371 @@ void editorHighlightSubtree(TSNode root) {
                 }
             }
 
-            // Python __XXX__ constants
-            regex_t regex;
-            int compiled_regex = regcomp(&regex, "__[[:alpha:]]+__", REG_EXTENDED);
-            if (!compiled_regex) {
-                is_constant = is_constant || !regexec(&regex, row->chars, 0, NULL, 0);
-            }
-
             if (is_constant) {
                 highlight = HL_CONSTANT;
             }
         }
-    }
-    else if (!strcmp(type, "null")) {
-        highlight = HL_CONSTANT;
+
+        // Identifiers part of the specified keywords
+
+        // Copy identifier text
+        char *word;
+        word = malloc(len + 1);
+        erow *row = &E.row[start.row];
+        memcpy(word, &row->chars[start.column], len);
+        word[len] = '\0';
+
+        printf("WORD:%s\r\n", word);
+
+        if (inStringArray(word, E.syntax->keyword2)) {
+            highlight = HL_KEYWORD2;
+        } else if (inStringArray(word, E.syntax->keyword1)) {
+            highlight = HL_KEYWORD1;
+        }
+
+        free(word);
     }
 
+    // function name
+    else if (inStringArray(type, (char*[]) { "function_declarator", "call_expression", "call", "function_item", NULL })) {
+        TSNode function_name;
+        bool set = false;
+
+        if (!strcmp(type, "function_declarator")) {
+            char *field_name = "declarator";
+            function_name = ts_node_child_by_field_name(root, field_name, strlen(field_name));
+            set = true;
+        } else if (!strcmp(type, "call_expression")) {
+            char *field_name = "function";
+            TSNode function_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
+
+            // No children means the identifier with field 'function' is the function name
+            if (!ts_node_is_null(function_child) && ts_node_child_count(function_child) == 0) {
+                function_name = function_child;
+            }
+            // Otherwise the function is part of a path and we should just select the 'name' field.
+            else {
+                field_name = "name";
+                function_name = ts_node_child_by_field_name(function_child, field_name, strlen(field_name));
+            }
+
+            set = true;
+        } else if (!strcmp(type, "call")) {
+            char *field_name = "function";
+            TSNode function_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
+
+            if (!ts_node_is_null(function_child)) {
+                int function_child_count = ts_node_child_count(function_child);
+
+                // No children means the identifier with field 'function' is the function name
+                if (function_child_count == 0) {
+                    function_name = function_child;
+                }
+                // Otherwise the function is part of an object and we should just select the 'attribute' field.
+                else {
+                    field_name = "attribute";
+                    function_name = ts_node_child_by_field_name(function_child, field_name, strlen(field_name));
+                }
+
+                set = true;
+            }
+        } else if (!strcmp(type, "function_item")) {
+            char *field_name = "name";
+            function_name = ts_node_child_by_field_name(root, field_name, strlen(field_name));
+            set = true;
+        }
+
+        if (set && !ts_node_is_null(function_name)) {
+            highlight = HL_FUNCTION;
+            start = ts_node_start_point(function_name);
+            end = ts_node_end_point(function_name);
+        }
+    }
+
+    /*
+     * Language specific highlighting
+     */
+
+    // Rust
+    if (!strcmp(E.syntax->filetype, "Rust")) {
+        /*
+         * Direct
+         */
+
+        // meta item (Rust)
+        if (!strcmp(type, "meta_item")) {
+            highlight = HL_KEYWORD2;
+        }
+
+        // mutable specifier keyword (Rust)
+        else if (!strcmp(type, "mutable_specifier")) {
+            highlight = HL_KEYWORD1;
+        }
+
+        // fields (Rust)
+        else if (!strcmp(type, "field_identifier")) {
+            highlight = HL_FUNCTION;
+        }
+
+        // use list (Rust)
+        else if (!strcmp(type, "use_list")) {
+            highlight = HL_KEYWORD2;
+        }
+
+        // use wildcard * (Rust)
+        else if (!strcmp(type, "use_wildcard")) {
+            highlight = HL_CONSTANT;
+        }
+
+        // enum item
+        else if (!strcmp(type, "enum_variant")) {
+            highlight = HL_CONSTANT;
+        }
+
+        /*
+         * Child
+         */
+
+        // parameter (Rust)
+        else if (!strcmp(type, "parameter")) {
+            TSNode parameter_child = ts_node_child(root, 0);
+
+            if (!ts_node_is_null(parameter_child)) {
+                highlight = HL_KEYWORD1;
+                start = ts_node_start_point(parameter_child);
+                end = ts_node_end_point(parameter_child);
+            }
+        }
+
+        // macro name (Rust)
+        else if (!strcmp(type, "macro_invocation")) {
+            highlight = HL_KEYWORD2;
+            TSNode macro_child = ts_node_child(root, 0);
+
+            if (!ts_node_is_null(macro_child)) {
+                start = ts_node_start_point(macro_child);
+                end = ts_node_end_point(macro_child);
+                end.column += 1;
+            }
+        }
+
+        // field expression (Rust)
+        else if (!strcmp(type, "field_expression")) {
+            char *field_name = "field";
+            TSNode field_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
+
+            if (!ts_node_is_null(field_child)) {
+                highlight = HL_FUNCTION;
+                start = ts_node_start_point(field_child);
+                end = ts_node_end_point(field_child);
+            }
+        }
+
+        /*
+         * Complex
+         */
+
+        // scoped identifier (Rust)
+        else if (inStringArray(type, (char*[]) { "scoped_identifier", "scoped_type_identifier", NULL })) {
+            TSNode parent = ts_node_parent(root);
+
+            if (!ts_node_is_null(parent)) {
+                const char *parent_type = ts_node_type(parent);
+
+                // If current node is a nested scoped identifier, highlight whole node
+                if (inStringArray(parent_type, (char*[]) { "scoped_identifier", "scoped_use_list" })) {
+                    highlight = HL_COMMENT;
+                }
+                // If parent is a use wildcard, determine highlight based on case
+                else if (!strcmp(parent_type, "use_wildcard")) {
+                    char *field_name = "name";
+                    TSNode name_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
+
+                    TSPoint name_start = ts_node_start_point(name_child);
+                    erow *row = &E.row[name_start.row];
+                    char first = row->chars[name_start.column];
+
+                    if (first > 65 && first < 91) {
+                        // Uppercase
+                        highlight = HL_KEYWORD2;
+                    } else {
+                        highlight = HL_COMMENT;
+                    }
+                }
+                // Otherwise, highlight both the path and name
+                else {
+                    char *field_name = "path";
+                    TSNode path_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
+                    TSPoint path_start = ts_node_start_point(path_child);
+                    TSPoint path_end = ts_node_end_point(path_child);
+                    erow *path_row = &E.row[path_start.row];
+
+                    for (int c = path_start.column; c < path_end.column; c++) {
+                        path_row->highlight[c] = HL_COMMENT;
+                    }
+
+                    field_name = "name";
+                    TSNode name_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
+
+                    TSPoint name_start = ts_node_start_point(name_child);
+                    TSPoint name_end = ts_node_end_point(name_child);
+                    erow *name_row = &E.row[name_start.row];
+
+                    for (int c = name_start.column; c < name_end.column; c++) {
+                        name_row->highlight[c] = HL_KEYWORD2;
+                    }
+                }
+            }
+        }
+
+        // use declaration (Rust)
+        else if (!strcmp(type, "use_declaration")) {
+            TSNode scoped_identifier_child = ts_node_child(root, 1);
+
+            if (!ts_node_is_null(scoped_identifier_child)) {
+                char *field_name = "name";
+                TSNode name_child = ts_node_child_by_field_name(scoped_identifier_child, field_name, strlen(field_name));
+                if (!ts_node_is_null(name_child)) {
+                    TSPoint name_start = ts_node_start_point(name_child);
+                    TSPoint name_end = ts_node_end_point(name_child);
+                    erow *row = &E.row[name_start.row];
+
+                    start = name_start;
+                    start = name_start;
+                    highlight = HL_KEYWORD2;
+                }
+            }
+        }
+
+        // match pattern types
+        else if (!strcmp(type, "match_pattern")) {
+            TSNode match_child = ts_node_child(root, 0);
+
+            if (!ts_node_is_null(match_child)) {
+                const char *child_type = ts_node_type(match_child);
+
+                if (strcmp(child_type, "identifier")) {
+                    if (!strcmp(child_type, "tuple_struct_pattern")) {
+                        char *field_name = "type";
+                        TSNode type_child = ts_node_child_by_field_name(match_child, field_name, strlen(field_name));
+
+                        start = ts_node_start_point(type_child);
+                        end = ts_node_end_point(type_child);
+                        highlight = HL_KEYWORD2;
+                    }
+                } else {
+                    highlight = HL_KEYWORD2;
+                }
+            }
+        }
+
+        // else if (!strcmp(type, "identifier")) {
+            // TSNode parent = ts_node_parent(root);
+
+            // if (!ts_node_is_null(parent)) {
+                // const char *parent_type = ts_node_type(parent);
+
+                // if (!strcmp(parent_type, "scoped_identifier")) {
+
+                    // TSNode grandparent = ts_node_parent(parent);
+
+                    // if (!ts_node_is_null(grandparent)) {
+
+                        // const char *grandparent_type = ts_node_type(grandparent);
+
+                        // if (strcmp(grandparent_type, "scoped_identifier")) {
+                            // erow *row = &E.row[start.row];
+                            // char first = row->chars[start.column];
+
+                            // if (first > 65 && first < 91) {
+                                // // Uppercase
+                                // highlight = HL_KEYWORD2;
+                            // } else {
+                                // highlight = HL_COMMENT;
+                            // }
+                                    // // highlight = HL_KEYWORD2;
+                        // }
+
+                    // }
+                    // // char *field_name = "name";
+                    // // TSNode name_child = ts_node_child_by_field_name(parent, field_name, strlen(field_name));
+
+                    // // if (ts_node_eq(name_child, root)) {
+                        // // highlight = HL_KEYWORD2;
+                    // // }
+
+                // }
+            // }
+        // }
+    }
+
+    // Python
+    if (!strcmp(E.syntax->filetype, "Python")) {
+        // except (Python)
+        if (!strcmp(type, "except_clause")) {
+            highlight = HL_KEYWORD2;
+            TSNode except_child = ts_node_child(root, 1);
+
+            if (!ts_node_is_null(except_child)) {
+                start = ts_node_start_point(except_child);
+                end = ts_node_end_point(except_child);
+            }
+        }
+
+        /*
+         * Complex
+         */
+
+        // Fields (Python) - atttributes without parameter list
+        else if (!strcmp(type, "attribute")) {
+
+            // functions can also be arguments, ignore if attribute is followed by argument list
+            TSNode sibling = ts_node_next_sibling(root);
+            const char *sibling_type = "";
+
+            if (!ts_node_is_null(sibling)) {
+                 sibling_type = ts_node_type(sibling);
+            }
+
+            // If there is no sibling or the sibling is not an argument list, find and highlight the field
+            if (strcmp(sibling_type, "argument_list")) {
+                char *field_name = "attribute";
+                TSNode attribute_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
+
+                if (!ts_node_is_null(attribute_child)) {
+                    highlight = HL_FIELD;
+                    start = ts_node_start_point(attribute_child);
+                    end = ts_node_end_point(attribute_child);
+                }
+            }
+        }
+
+        else if (!strcmp(type, "identifier")) {
+            // Python __XXX__ constants
+
+            regex_t regex;
+            int compiled_regex = regcomp(&regex, "__[[:alpha:]]+__", REG_EXTENDED);
+
+            // If successfully compiled
+            if (!compiled_regex) {
+                erow *row = &E.row[start.row];
+
+                if (!regexec(&regex, row->chars, 0, NULL, 0)) {
+                    highlight = HL_CONSTANT;
+                }
+            }
+        }
+    }
+
+    // C
+    if (!strcmp(E.syntax->filetype, "c")) {
+        // fields
+        if (!strcmp(type, "field_identifier")) {
+            highlight = HL_FIELD;
+        }
+    }
+
+    // Set highlight
     if (highlight != HL_NORMAL) {
         printf("start [%d, %d]\r\n", start.row, start.column);
         printf("end [%d, %d]\r\n", end.row, end.column);
@@ -224,6 +528,7 @@ void editorHighlightSubtree(TSNode root) {
         }
     }
 
+    // Highlight node children
     for (uint32_t i = 0; i < child_count; i++) {
         TSNode child = ts_node_child(root, i);
         editorHighlightSubtree(child);
@@ -402,19 +707,19 @@ int editorSyntaxToColor(int hl) {
     switch (hl) {
         case HL_COMMENT:
         case HL_MLCOMMENT:
-            return 36; // Cyan
-        case HL_KEYWORD1:
-            return 33; // Yellow
-        case HL_KEYWORD2:
-            return 32; // Green
-        case HL_STRING:
             return 35; // Magenta
+        case HL_KEYWORD1:
+            return 34; // Blue
+        case HL_KEYWORD2:
+            return 33; // Yellow
+        case HL_STRING:
+            return 32; // Green
         case HL_NUMBER:
             return 31; // Red
         case HL_FUNCTION:
             return 34; // Blue
         case HL_SYNTAX:
-            return 32; // Yellow
+            return 31; // Red
         case HL_CONSTANT:
             return 31; // Red
         case HL_FIELD:
@@ -493,6 +798,10 @@ void editorInitSyntaxTree() {
         TSLanguage *tree_sitter_python();
         E.syntax->language = tree_sitter_python();
         ts_parser_set_language(parser, E.syntax->language);
+    } else if (!strcmp(E.syntax->filetype, "Rust")) {
+        TSLanguage *tree_sitter_rust();
+        E.syntax->language = tree_sitter_rust();
+        ts_parser_set_language(parser, E.syntax->language);
     }
     else {
         return;
@@ -501,7 +810,7 @@ void editorInitSyntaxTree() {
     int len;
     char *source_code = editorRowsToString(&len);
 
-    editorPrintSourceCode();
+    // editorPrintSourceCode();
 
     TSTree *tree = ts_parser_parse_string(parser, NULL, source_code, len);
 
@@ -522,7 +831,7 @@ void editorUpdateSyntaxTree(int start_row, int start_column, int old_end_row, in
     int len;
     char *source_code = editorRowsToString(&len);
 
-    editorPrintSourceCode();
+    // editorPrintSourceCode();
 
     TSTree *tree = ts_parser_parse_string(E.syntax->parser, E.syntax->tree, source_code, len);
     E.syntax->tree = tree;

@@ -7,7 +7,7 @@
 /* C/C++ highlighting */
 
 // file extensions
-char *C_HL_extensions[] = { ".c", ".h", ".cpp", NULL };
+char *C_HL_extensions[] = { ".c", ".h", ".cc", ".cpp", NULL };
 // highlight groups
 char *C_HL_keyword1[] = { "break", "case", "class", "continue", "do", "else", "enum", "false", "for", "goto", "if", "return", "sizeof", "struct", "switch", "true", "typedef", "union", "while", NULL };
 char *C_HL_keyword2[] = { "#include", "#ifdef", "#endif", "#ifndef", "#define", NULL };
@@ -23,15 +23,19 @@ char *Python_HL_keyword2[] = { "false", "true", "none", NULL };
 char *Python_HL_syntax1[] = { "(", ")", "{", "}", "[", "]", ";", ".", NULL };
 char *Python_HL_syntax2[] = { "?", ":", NULL };
 
-// /* Rust highlighting */
-// 
-// // Rust file extensions
-// char *Rust_HL_extensions[] = { ".rs", NULL };
+/* Rust highlighting */
+
+// Rust file extensions
+char *Rust_HL_extensions[] = { ".rs", NULL };
+char *Rust_HL_keyword1[] = { "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return", "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where", "while", NULL };
+char *Rust_HL_keyword2[] = { "false", "true", "None", "Some", "Ok", "Err", NULL };
+char *Rust_HL_syntax1[] = { "(", ")", "{", "}", "[", "]", "<", ">", ";", ".", "::", "&", NULL };
+char *Rust_HL_syntax2[] = { "?", ":", "->", "=>", "#", NULL };
 // char *Rust_HL_keywords[] = {
-//     "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return", "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where", "while",
-//     "AsMut|", "AsRef|", "BTreeMap|", "BTreeSet|", "BinaryHeap|", "Box|", "Clone|", "Copy|", "Default|", "Drop|", "Eq|", "Err|", "Extend|", "FnMut|", "FnOnce|", "Fn|", "From|", "HashMap|", "HashSet|", "Into|", "Iterator|", "LinkedList|", "None|", "Ok|", "Option|", "Ord|", "PartialEq|", "PartialOrd|", "Result|", "Self|", "Send|", "Sized|", "Some|", "String|", "Sync|", "ToOwned|", "Unpin|", "VecDeque|", "Vec|", "array|", "bool|", "char|", "f32|", "f64|", "false|", "fn|", "i128|", "i16|", "i32|", "i64|", "i8|", "isize|", "never|", "pointer|", "reference|", "slice|", "str|", "true|", "tuple|", "u128|", "u16|", "u32|", "u64|", "u8|", "unit|", "usize|", NULL
+    // "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return", "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where", "while",
+    // "AsMut|", "AsRef|", "BTreeMap|", "BTreeSet|", "BinaryHeap|", "Box|", "Clone|", "Copy|", "Default|", "Drop|", "Eq|", "Err|", "Extend|", "FnMut|", "FnOnce|", "Fn|", "From|", "HashMap|", "HashSet|", "Into|", "Iterator|", "LinkedList|", "None|", "Ok|", "Option|", "Ord|", "PartialEq|", "PartialOrd|", "Result|", "Self|", "Send|", "Sized|", "Some|", "String|", "Sync|", "ToOwned|", "Unpin|", "VecDeque|", "Vec|", "array|", "bool|", "char|", "f32|", "f64|", "false|", "fn|", "i128|", "i16|", "i32|", "i64|", "i8|", "isize|", "never|", "pointer|", "reference|", "slice|", "str|", "true|", "tuple|", "u128|", "u16|", "u32|", "u64|", "u8|", "unit|", "usize|", NULL
 // };
-// 
+
 // /* Haskell highlighting */
 // 
 // // Haskell file extensions
@@ -63,14 +67,15 @@ struct editorSyntax HLDB[] = {
         Python_HL_syntax2,
         NULL, NULL, NULL
     },
-    // {
-        // "Rust",
-        // Rust_HL_extensions,
-        // Rust_HL_keywords,
-        // "//", "/*", "*/",
-        // HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS,
-        // NULL, NULL, NULL
-    // },
+    {
+        "Rust",
+        Rust_HL_extensions,
+        Rust_HL_keyword1,
+        Rust_HL_keyword2,
+        Rust_HL_syntax1,
+        Rust_HL_syntax2,
+        NULL, NULL, NULL
+    }
     // {
         // "Haskell",
         // Haskell_HL_extensions,
