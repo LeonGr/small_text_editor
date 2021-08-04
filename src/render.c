@@ -85,8 +85,8 @@ void editorScroll() {
 /*
  * Determine what characters to render based on the characters in each row
  */
-void editorCalculateRenderedRows(int start_row, int old_end_row, int new_end_row) {
-    for (int r = 0; r < E.numrows; r++) {
+void editorCalculateRenderedRows(int start_row, int end_row) {
+    for (int r = start_row; r <= end_row && r < E.numrows; r++) {
         erow *row = &E.row[r];
 
         // Count the tabs in the row

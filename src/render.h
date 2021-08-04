@@ -21,7 +21,7 @@ void editorScroll();
 /*
  * Determine what characters to render based on the characters in each row
  */
-void editorCalculateRenderedRows();
+void editorCalculateRenderedRows(int start_row, int new_end_row);
 
 /*
  * Add editor rows to append buffer `ab`.

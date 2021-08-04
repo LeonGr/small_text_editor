@@ -2,6 +2,7 @@
 #include "io.h"
 #include "languages.h"
 #include "render.h"
+#include "terminal.h"
 #include <ctype.h>
 #include <regex.h>
 #include <stdbool.h>
@@ -477,9 +478,9 @@ void editorHighlightSubtree(TSNode root) {
     }
 }
 
-void editorUpdateHighlight() {
+void editorUpdateHighlight(int start_row, int end_row) {
     // Reset highlight
-    for (int i = 0; i < E.numrows; i++) {
+    for (int i = start_row; i <= end_row && i < E.numrows; i++) {
         erow *row = &E.row[i];
 
         // Set correct highlighting array size
@@ -623,9 +624,9 @@ void editorInitSyntaxTree() {
 
     // editorPrintSyntaxTree();
 
-    editorUpdateHighlight();
+    editorUpdateHighlight(0, E.numrows);
 
-    editorCalculateRenderedRows(0, E.numrows, E.numrows);
+    editorCalculateRenderedRows(0, E.numrows);
 }
 
 void editorUpdateSyntaxTree(int old_end_row, int old_end_column, int old_end_byte, int new_end_row, int new_end_column, int new_end_byte) {
@@ -656,13 +657,30 @@ void editorUpdateSyntaxTree(int old_end_row, int old_end_column, int old_end_byt
 
     // editorPrintSourceCode();
 
-    // TSTree *tree = ts_parser_parse_string(E.syntax->parser, NULL, source_code, len);
     TSTree *tree = ts_parser_parse_string(E.syntax->parser, E.syntax->tree, source_code, len);
-    E.syntax->tree = tree;
+
+    uint32_t range_len;
+    TSRange *changed_range = ts_tree_get_changed_ranges(E.syntax->tree, tree, &range_len);
+
+    uint32_t first_changed_row = edit.start_point.row;
+    uint32_t last_changed_row = new_end_row > old_end_row ? new_end_row : old_end_row;
+
+    if (range_len > 1) {
+        die("Changed range array length should always be 1 or less");
+    } else if (range_len == 1) {
+        TSRange range = changed_range[0];
+
+        E.syntax->tree = tree;
+
+        first_changed_row = range.start_point.row;
+        last_changed_row = range.end_point.row;
+    }
+
+    free(changed_range);
 
     // editorPrintSyntaxTree();
 
-    editorUpdateHighlight();
+    editorUpdateHighlight(first_changed_row, last_changed_row);
 
-    editorCalculateRenderedRows(edit.start_point.row, edit.old_end_point.row, edit.new_end_point.row);
+    editorCalculateRenderedRows(first_changed_row, last_changed_row);
 }
