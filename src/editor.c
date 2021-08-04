@@ -62,6 +62,18 @@ void editorUpdateRow(erow *row) {
     // editorUpdateSyntax(row);
 }
 
+uint32_t rowColPointToBytePoint(int row, int column) {
+    uint32_t byte = column;
+
+    for (int r = 0; r < row; r++) {
+        erow *row = &E.row[r];
+        // Size of the row + a newline
+        byte += row->size + 1;
+    }
+
+    return byte;
+}
+
 /*
  * Append `len` characters of chars `s` to editor
  */
@@ -93,7 +105,7 @@ void editorInsertRow(int at, char *s, size_t len) {
     E.row[at].highlight = NULL;
     E.row[at].open_comment = false;
 
-    editorUpdateRow(&E.row[at]);
+    // editorUpdateRow(&E.row[at]);
 
     E.numrows++;
     E.dirty = true;
@@ -148,9 +160,11 @@ void editorRowInsertChar(erow *row, int at, char c) {
 
     row->chars[at] = c;
 
-    editorUpdateRow(row);
+    int old_end_byte = rowColPointToBytePoint(row->index, at);
+    int new_end_byte = old_end_byte + 1;
+    editorUpdateSyntaxTree(row->index, at, old_end_byte, row->index, at + 1, new_end_byte);
 
-    editorUpdateSyntaxTree(row->index, at, row->index, at, row->index, at + 1);
+    // editorUpdateRow(row);
 
     E.dirty = true;
 }
@@ -164,7 +178,10 @@ void editorRowAppendString(erow *row, char *s, size_t len) {
     memcpy(&row->chars[row->size], s, len);
     row->size += len;
     row->chars[row->size] = '\0';
-    editorUpdateRow(row);
+
+    // editorUpdateRow(row);
+    // editorUpdateSyntaxTree(row->index, row->size - len, row->index, row->size);
+
     E.dirty = true;
 }
 
@@ -180,7 +197,13 @@ void editorRowDeleteChar(erow *row, int at) {
     // Move chars after cursor one spot back
     memmove(&row->chars[at], &row->chars[at + 1], row->size - at);
     row->size--;
-    editorUpdateRow(row);
+
+    // editorUpdateRow(row);
+
+    int old_end_byte = rowColPointToBytePoint(row->index, at + 1);
+    int new_end_byte = old_end_byte - 1;
+    editorUpdateSyntaxTree(row->index, at + 1, old_end_byte, row->index, at, new_end_byte);
+
     E.dirty = true;
 }
 
@@ -195,9 +218,18 @@ void editorClearRowToStart() {
     erow *row = &E.row[E.cy];
     memmove(&row->chars[0], &row->chars[E.cx], row->size - E.cx);
     row->size -= E.cx;
-    editorUpdateRow(row);
+
+    // editorUpdateRow(row);
+
+    int old_end_byte = rowColPointToBytePoint(E.cy, E.cx);
+    int new_end_byte = rowColPointToBytePoint(E.cy, 0);
+    editorUpdateSyntaxTree(E.cy, E.cx, old_end_byte, E.cy, 0, new_end_byte);
+
     E.dirty = true;
     E.cx = 0;
+
+    // Reset saved position
+    E.savedCx = E.cx;
 }
 
 /*** editor operations ***/
@@ -214,6 +246,9 @@ void editorInsertChar(char c) {
     // Insert character in current row
     editorRowInsertChar(&E.row[E.cy], E.cx, c);
     E.cx++;
+
+    // Reset saved position
+    E.savedCx = E.cx;
 }
 
 /*
@@ -228,8 +263,13 @@ void editorInsertNewline() {
         row = &E.row[E.cy];
         row->size = E.cx;
         row->chars[row->size] = '\0';
-        editorUpdateRow(row);
+        // editorUpdateRow(row);
     }
+
+    int old_end_byte = rowColPointToBytePoint(E.cy, E.cx);
+    int new_end_byte = rowColPointToBytePoint(E.cy + 1, 0);
+    editorUpdateSyntaxTree(E.cy, E.cx, old_end_byte, E.cy + 1, 0, new_end_byte);
+
     E.cy++;
     E.cx = 0;
 }
@@ -253,11 +293,16 @@ void editorDeleteChar() {
         // Put cursor at end of previous line
         E.cx = E.row[E.cy - 1].size;
 
+        int old_end_byte = rowColPointToBytePoint(E.cy, 0);
+
         // Join lines
         editorRowAppendString(&E.row[E.cy - 1], row->chars, row->size);
 
         // Delete old line
         editorDeleteRow(E.cy);
+
+        int new_end_byte = rowColPointToBytePoint(E.cy - 1, E.cx);
+        editorUpdateSyntaxTree(E.cy, 0, old_end_byte, E.cy - 1, E.cx, new_end_byte);
 
         E.cy--;
     }

@@ -83,6 +83,68 @@ void editorScroll() {
 }
 
 /*
+ * Determine what characters to render based on the characters in each row
+ */
+void editorCalculateRenderedRows(int start_row, int old_end_row, int new_end_row) {
+    for (int r = 0; r < E.numrows; r++) {
+        erow *row = &E.row[r];
+
+        // Count the tabs in the row
+        int tabs = 0;
+        int ctrl_chars = 0;
+        for (int i = 0; i < row->size; i++) {
+            char c = row->chars[i];
+
+            if (c == '\t') {
+                tabs++;
+            }
+            else if (iscntrl(c)) {
+                ctrl_chars++;
+            }
+        }
+
+        // allocate extra space for our row with the tabs replaced by spaces
+        free(row->render);
+        int renderSize = row->size + tabs * (TAB_SIZE - 1) + ctrl_chars + 1;
+        row->render = malloc(renderSize);
+
+        unsigned char renderHighlight[renderSize];
+
+        // Replace characters in row
+        int index = 0;
+        for (int i = 0; i < row->size; i++) {
+            char c = row->chars[i];
+            unsigned char h = row->highlight[i];
+
+            // Render tabs as TAB_SIZE spaces
+            if (c == '\t') {
+                do {
+                    renderHighlight[index] = h;
+                    row->render[index++] = ' ';
+                } while (index % TAB_SIZE != 0);
+            }
+            // Render control characters with a preceding '^'
+            else if (iscntrl(c)) {
+                renderHighlight[index] = h;
+                row->render[index++] = '^';
+                renderHighlight[index] = h;
+                row->render[index++] = c;
+            }
+            else {
+                renderHighlight[index] = h;
+                row->render[index++] = c;
+            }
+        }
+
+        row->render[index] = '\0';
+        row->renderSize = index;
+
+        row->highlight = realloc(row->highlight, renderSize);
+        memcpy(row->highlight, renderHighlight, renderSize);
+    }
+}
+
+/*
  * Add editor rows to append buffer `ab`.
  * empty lines are shown as "~".
  */
@@ -119,17 +181,15 @@ void editorDrawRows(struct abuf *ab) {
             snprintf(max_line_nr, sizeof(max_line_nr), "%d", E.numrows);
             int max_line_nr_len = strlen(max_line_nr);
 
+            char *spacing = " ";
             char line_nr_col_width_format[16];
-            int line_nr_format_len = snprintf(line_nr_col_width_format, sizeof(line_nr_col_width_format), "%%%dd  ", max_line_nr_len);
-            // int line_nr_format_len = snprintf(line_nr_col_width_format, sizeof(line_nr_col_width_format), "\x1b[7m%%%dd \x1b[m ", max_line_nr_len);
+            snprintf(line_nr_col_width_format, sizeof(line_nr_col_width_format), "%%%dd%s", max_line_nr_len, spacing);
 
             char line_nr[16];
             int line_number_len = snprintf(line_nr, sizeof(line_nr), line_nr_col_width_format, y + E.row_offset + 1);
-            // subtract size of escape characters
-            E.line_nr_len = line_number_len - (line_nr_format_len - max_line_nr_len - 2);
-            abAppend(ab, line_nr, line_number_len);
+            E.line_nr_len = max_line_nr_len + strlen(spacing);
 
-            // E.line_nr_len = 0;
+            abAppend(ab, line_nr, line_number_len);
 
             int len = E.row[filerow].renderSize - E.col_offset;
             if (len < 0) {

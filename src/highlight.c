@@ -1,12 +1,13 @@
 #include "highlight.h"
 #include "io.h"
 #include "languages.h"
+#include "render.h"
 #include <ctype.h>
 #include <regex.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <tree_sitter/api.h>
+// #include <tree_sitter/api.h>
 
 extern struct editorConfig E;
 
@@ -39,11 +40,15 @@ void editorHighlightSubtree(TSNode root) {
     }
 
     const char *type = ts_node_type(root);
-    printf("node type: \t'%s'\r\n", type);
+    // printf("node type: \t'%s'\r\n", type);
+
+    // uint32_t start_byte = ts_node_start_byte(root);
+    // uint32_t end_byte = ts_node_end_byte(root);
+    // printf("start byte: %d, end_byte: %d\r\n",  start_byte, end_byte);
 
     uint32_t child_count = ts_node_child_count(root);
 
-    printf("%d child(ren)\r\n", child_count);
+    // printf("%d child(ren)\r\n", child_count);
 
     TSPoint start = ts_node_start_point(root);
     TSPoint end = ts_node_end_point(root);
@@ -129,8 +134,8 @@ void editorHighlightSubtree(TSNode root) {
             bool is_constant = true;
             for (uint32_t c = start.column; c < end.column; c++) {
                 // Assume constant consists of capital letters, numbers or '_'
-                if ((row->chars[c] < 48 || row->chars[c] > 58) && //
-                    (row->chars[c] < 65 || row->chars[c] > 90) &&
+                if ((row->chars[c] < '0' || row->chars[c] > '9') &&
+                    (row->chars[c] < 'A' || row->chars[c] > 'Z') &&
                      row->chars[c] != '_') {
                     is_constant = false;
                     break;
@@ -151,7 +156,7 @@ void editorHighlightSubtree(TSNode root) {
         memcpy(word, &row->chars[start.column], len);
         word[len] = '\0';
 
-        printf("WORD:%s\r\n", word);
+        // printf("WORD:%s\r\n", word);
 
         if (inStringArray(word, E.syntax->keyword2)) {
             highlight = HL_KEYWORD2;
@@ -321,7 +326,7 @@ void editorHighlightSubtree(TSNode root) {
                     erow *row = &E.row[name_start.row];
                     char first = row->chars[name_start.column];
 
-                    if (first > 65 && first < 91) {
+                    if (first >= 'A' && first <= 'Z') {
                         // Uppercase
                         highlight = HL_KEYWORD2;
                     } else {
@@ -447,18 +452,18 @@ void editorHighlightSubtree(TSNode root) {
 
     // Set highlight
     if (highlight != HL_NORMAL) {
-        printf("start [%d, %d]\r\n", start.row, start.column);
-        printf("end [%d, %d]\r\n", end.row, end.column);
+        // printf("start [%d, %d]\r\n", start.row, start.column);
+        // printf("end [%d, %d]\r\n", end.row, end.column);
 
         erow *row = &E.row[start.row];
 
         // node spans multiple lines
         if (end.row > start.row) {
-            memset(&row->highlight[start.column], highlight, row->renderSize - start.column);
+            memset(&row->highlight[start.column], highlight, row->size - start.column);
 
             for (uint32_t r = start.row + 1; r < end.row; r++) {
                 row = &E.row[r];
-                memset(row->highlight, highlight, row->renderSize);
+                memset(row->highlight, highlight, row->size);
             }
 
             row = &E.row[end.row];
@@ -485,14 +490,14 @@ void editorUpdateHighlight() {
         erow *row = &E.row[i];
 
         // Set correct highlighting array size
-        row->highlight = realloc(row->highlight, row->renderSize);
+        row->highlight = realloc(row->highlight, row->size);
         // Fill array with default highlight
-        memset(row->highlight, HL_NORMAL, row->renderSize);
+        memset(row->highlight, HL_NORMAL, row->size);
     }
 
     TSNode root = ts_tree_root_node(E.syntax->tree);
 
-    printf("UPDATE:\r\n");
+    // printf("UPDATE:\r\n");
 
     editorHighlightSubtree(root);
 }
@@ -733,8 +738,8 @@ void editorInitSyntaxTree() {
     if (E.syntax == NULL) {
         for (int i = 0; i < E.numrows; i++) {
             erow *row = &E.row[i];
-            row->highlight = realloc(row->highlight, row->renderSize);
-            memset(row->highlight, HL_NORMAL, row->renderSize);
+            row->highlight = realloc(row->highlight, row->size);
+            memset(row->highlight, HL_NORMAL, row->size);
         }
         return;
     }
@@ -772,17 +777,33 @@ void editorInitSyntaxTree() {
     // editorPrintSyntaxTree();
 
     editorUpdateHighlight();
+
+    editorCalculateRenderedRows(0, E.numrows, E.numrows);
 }
 
-void editorUpdateSyntaxTree(int start_row, int start_column, int old_end_row, int old_end_column, int new_end_row, int new_end_column) {
+void editorUpdateSyntaxTree(int old_end_row, int old_end_column, int old_end_byte, int new_end_row, int new_end_column, int new_end_byte) {
     if (E.syntax == NULL) {
         return;
     }
 
+    // Select edit range, setting the lowest point as the start
     TSInputEdit edit;
-    edit.start_point = (TSPoint){ start_row, start_column };
-    edit.old_end_point = (TSPoint){ old_end_row, old_end_column };
+
+    if (new_end_row < old_end_row || (new_end_row == old_end_row && new_end_column < old_end_column)) {
+        edit.start_byte = new_end_byte;
+        edit.start_point = (TSPoint){ new_end_row, new_end_column };
+    } else {
+        edit.start_byte = old_end_byte;
+        edit.start_point = (TSPoint){ old_end_row, old_end_column };
+    }
+    edit.new_end_byte = new_end_byte;
     edit.new_end_point = (TSPoint){ new_end_row, new_end_column };
+
+    edit.old_end_byte = old_end_byte;
+    edit.old_end_point = (TSPoint){ old_end_row, old_end_column };
+
+    // printf("start_byte: %d, old_end_byte: %d, new_end_byte: %d, start_point: (%d, %d), old_end_point: (%d, %d), new_end_point: (%d, %d)\r\n", edit.start_byte, edit.old_end_byte, edit.new_end_byte, edit.start_point.row, edit.start_point.column, edit.old_end_point.row, edit.old_end_point.column, edit.new_end_point.row, edit.new_end_point.column);
+
 
     ts_tree_edit(E.syntax->tree, &edit);
 
@@ -791,10 +812,13 @@ void editorUpdateSyntaxTree(int start_row, int start_column, int old_end_row, in
 
     // editorPrintSourceCode();
 
+    // TSTree *tree = ts_parser_parse_string(E.syntax->parser, NULL, source_code, len);
     TSTree *tree = ts_parser_parse_string(E.syntax->parser, E.syntax->tree, source_code, len);
     E.syntax->tree = tree;
 
     // editorPrintSyntaxTree();
 
     editorUpdateHighlight();
+
+    editorCalculateRenderedRows(edit.start_point.row, edit.old_end_point.row, edit.new_end_point.row);
 }

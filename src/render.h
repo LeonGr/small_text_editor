@@ -19,6 +19,11 @@ int editorRowRxtoCx(erow *row, int rx);
 void editorScroll();
 
 /*
+ * Determine what characters to render based on the characters in each row
+ */
+void editorCalculateRenderedRows();
+
+/*
  * Add editor rows to append buffer `ab`.
  * empty lines are shown as "~".
  */

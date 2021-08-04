@@ -91,11 +91,6 @@ void editorFreeRow(erow *row);
 void editorDeleteRow(int at);
 
 /*
- * Delete row at line `at`
- */
-void editorDeleteRow(int at);
-
-/*
  * Append string `s` of length `len` to row `row`
  */
 void editorRowAppendString(erow *row, char *s, size_t len);
