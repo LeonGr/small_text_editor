@@ -1,11 +1,11 @@
 x search result highlighting
 x add syntax highlighting
-~ add highlighting for languages
+x add highlighting for languages
     x C/C++
     x Python
     x Rust
     x Haskell
-- add treesitter support
+~ add treesitter support
     x parse (c) syntax into TSTree
     x Figure out how to properly highlight differently rendered characters
     ~ port old languages
