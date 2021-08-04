@@ -218,6 +218,9 @@ void editorInsertNewline() {
 
     E.cy++;
     E.cx = 0;
+
+    // Reset saved position
+    E.savedCx = E.cx;
 }
 
 /*
