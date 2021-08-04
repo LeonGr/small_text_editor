@@ -71,9 +71,9 @@ typedef struct editorConfig {
 } editorConfig;
 
 /*
- * Determine what characters to render based on the characters of `row`
+ * Returns `true` if character `c` is considered a separator of words
  */
-void editorUpdateRow(erow *row);
+bool isSeparator(int c);
 
 /*
  * Append `len` characters of chars `s` to editor

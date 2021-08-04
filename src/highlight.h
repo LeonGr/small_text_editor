@@ -23,11 +23,6 @@ enum editorHighlight {
 };
 
 /*
- * Returns `true` is character `c` is considered a separator of words
- */
-bool isSeparator(int c);
-
-/*
  * Calculate syntax highlighting for the given `row`
  */
 void editorUpdateSyntax(erow *row);

@@ -13,55 +13,6 @@
 
 struct editorConfig E;
 
-/*
- * Determine what characters to render based on the characters of `row`
- */
-void editorUpdateRow(erow *row) {
-    // Count the tabs in the row
-    int tabs = 0;
-    int ctrl_chars = 0;
-    for (int i = 0; i < row->size; i++) {
-        char c = row->chars[i];
-
-        if (c == '\t') {
-            tabs++;
-        }
-        else if (iscntrl(c)) {
-            ctrl_chars++;
-        }
-    }
-
-    // allocate extra space for our row with the tabs replaced by spaces
-    free(row->render);
-    row->render = malloc(row->size + tabs * (TAB_SIZE - 1) + ctrl_chars + 1);
-
-    // Replace characters in row
-    int index = 0;
-    for (int i = 0; i < row->size; i++) {
-        char c = row->chars[i];
-
-        // Render tabs as TAB_SIZE spaces
-        if (c == '\t') {
-            do {
-                row->render[index++] = ' ';
-            } while (index % TAB_SIZE != 0);
-        }
-        // Render control characters with a preceding '^'
-        else if (iscntrl(c)) {
-            row->render[index++] = '^';
-            row->render[index++] = c;
-        }
-        else {
-            row->render[index++] = c;
-        }
-    }
-
-    row->render[index] = '\0';
-    row->renderSize = index;
-
-    // editorUpdateSyntax(row);
-}
-
 uint32_t rowColPointToBytePoint(int row, int column) {
     uint32_t byte = column;
 
@@ -72,6 +23,13 @@ uint32_t rowColPointToBytePoint(int row, int column) {
     }
 
     return byte;
+}
+
+/*
+ * Returns `true` is character `c` is considered a separator of words
+ */
+bool isSeparator(int c) {
+    return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];:\"", c) != NULL;
 }
 
 /*
@@ -104,8 +62,6 @@ void editorInsertRow(int at, char *s, size_t len) {
     E.row[at].render = NULL;
     E.row[at].highlight = NULL;
     E.row[at].open_comment = false;
-
-    // editorUpdateRow(&E.row[at]);
 
     E.numrows++;
     E.dirty = true;
@@ -164,8 +120,6 @@ void editorRowInsertChar(erow *row, int at, char c) {
     int new_end_byte = old_end_byte + 1;
     editorUpdateSyntaxTree(row->index, at, old_end_byte, row->index, at + 1, new_end_byte);
 
-    // editorUpdateRow(row);
-
     E.dirty = true;
 }
 
@@ -178,9 +132,6 @@ void editorRowAppendString(erow *row, char *s, size_t len) {
     memcpy(&row->chars[row->size], s, len);
     row->size += len;
     row->chars[row->size] = '\0';
-
-    // editorUpdateRow(row);
-    // editorUpdateSyntaxTree(row->index, row->size - len, row->index, row->size);
 
     E.dirty = true;
 }
@@ -197,8 +148,6 @@ void editorRowDeleteChar(erow *row, int at) {
     // Move chars after cursor one spot back
     memmove(&row->chars[at], &row->chars[at + 1], row->size - at);
     row->size--;
-
-    // editorUpdateRow(row);
 
     int old_end_byte = rowColPointToBytePoint(row->index, at + 1);
     int new_end_byte = old_end_byte - 1;
@@ -218,8 +167,6 @@ void editorClearRowToStart() {
     erow *row = &E.row[E.cy];
     memmove(&row->chars[0], &row->chars[E.cx], row->size - E.cx);
     row->size -= E.cx;
-
-    // editorUpdateRow(row);
 
     int old_end_byte = rowColPointToBytePoint(E.cy, E.cx);
     int new_end_byte = rowColPointToBytePoint(E.cy, 0);
@@ -263,7 +210,6 @@ void editorInsertNewline() {
         row = &E.row[E.cy];
         row->size = E.cx;
         row->chars[row->size] = '\0';
-        // editorUpdateRow(row);
     }
 
     int old_end_byte = rowColPointToBytePoint(E.cy, E.cx);
