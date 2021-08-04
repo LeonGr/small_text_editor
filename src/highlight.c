@@ -28,7 +28,7 @@ bool inStringArray(const char *string, char **array) {
     return false;
 }
 
-void editorHighlightSubtree(TSNode root) {
+void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
     if (ts_node_is_null(root)) {
         return;
     }
@@ -328,15 +328,19 @@ void editorHighlightSubtree(TSNode root) {
                     }
                 }
                 // Otherwise, highlight both the path and name (if not a function)
+                // highlighting manually should be an exception!
                 else {
                     char *field_name = "path";
                     TSNode path_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
                     TSPoint path_start = ts_node_start_point(path_child);
                     TSPoint path_end = ts_node_end_point(path_child);
-                    erow *path_row = &E.row[path_start.row];
 
-                    for (uint32_t c = path_start.column; c < path_end.column; c++) {
-                        path_row->highlight[c] = HL_COMMENT;
+                    if ((path_start.row >= start_row && path_start.row <= end_row) || (end.row >= start_row && end.row <= end_row)) {
+                        erow *path_row = &E.row[path_start.row];
+
+                        for (uint32_t c = path_start.column; c < path_end.column; c++) {
+                            path_row->highlight[c] = HL_COMMENT;
+                        }
                     }
 
                     if (strcmp(parent_type, "call_expression")) {
@@ -345,10 +349,13 @@ void editorHighlightSubtree(TSNode root) {
 
                         TSPoint name_start = ts_node_start_point(name_child);
                         TSPoint name_end = ts_node_end_point(name_child);
-                        erow *name_row = &E.row[name_start.row];
 
-                        for (uint32_t c = name_start.column; c < name_end.column; c++) {
-                            name_row->highlight[c] = HL_KEYWORD2;
+                        if ((name_start.row >= start_row && name_start.row <= end_row) || (end.row >= start_row && end.row <= end_row)) {
+                            erow *name_row = &E.row[name_start.row];
+
+                            for (uint32_t c = name_start.column; c < name_end.column; c++) {
+                                name_row->highlight[c] = HL_KEYWORD2;
+                            }
                         }
                     }
                 }
@@ -449,51 +456,43 @@ void editorHighlightSubtree(TSNode root) {
         // printf("start [%d, %d]\r\n", start.row, start.column);
         // printf("end [%d, %d]\r\n", end.row, end.column);
 
-        erow *row = &E.row[start.row];
+        if ((start.row >= start_row && start.row <= end_row) || (end.row >= start_row && end.row <= end_row)) {
+            erow *row = &E.row[start.row];
 
-        // node spans multiple lines
-        if (end.row > start.row) {
-            memset(&row->highlight[start.column], highlight, row->size - start.column);
+            // node spans multiple lines
+            if (end.row > start.row) {
+                memset(&row->highlight[start.column], highlight, row->size - start.column);
 
-            for (uint32_t r = start.row + 1; r < end.row; r++) {
-                row = &E.row[r];
-                memset(row->highlight, highlight, row->size);
+                for (uint32_t r = start.row + 1; r < end.row; r++) {
+                    row = &E.row[r];
+                    memset(row->highlight, highlight, row->size);
+                }
+
+                row = &E.row[end.row];
+                // printf("rendersize: %d", row->renderSize);
+                // printf("end.column: %d", end.column);
+                memset(row->highlight, highlight, end.column);
             }
-
-            row = &E.row[end.row];
-            // printf("rendersize: %d", row->renderSize);
-            // printf("end.column: %d", end.column);
-            memset(row->highlight, highlight, end.column);
-        }
-        // node spans single line
-        else {
-            memset(&row->highlight[start.column], highlight, end.column - start.column);
+            // node spans single line
+            else {
+                memset(&row->highlight[start.column], highlight, end.column - start.column);
+            }
         }
     }
 
     // Highlight node children
     for (uint32_t i = 0; i < child_count; i++) {
         TSNode child = ts_node_child(root, i);
-        editorHighlightSubtree(child);
+        editorHighlightSubtree(child, start_row, end_row);
     }
 }
 
-void editorUpdateHighlight(int start_row, int end_row) {
-    // Reset highlight
-    for (int i = start_row; i <= end_row && i < E.numrows; i++) {
-        erow *row = &E.row[i];
-
-        // Set correct highlighting array size
-        row->highlight = realloc(row->highlight, row->size);
-        // Fill array with default highlight
-        memset(row->highlight, HL_NORMAL, row->size);
-    }
-
+void editorHighlightSyntaxTree(int start_row, int end_row) {
     TSNode root = ts_tree_root_node(E.syntax->tree);
 
     // printf("UPDATE:\r\n");
 
-    editorHighlightSubtree(root);
+    editorHighlightSubtree(root, start_row, end_row);
 }
 
 /*
@@ -523,6 +522,17 @@ int editorSyntaxToColor(int hl) {
             return 36; // Cyan
         default:
             return 37; // White
+    }
+}
+
+void editorResetSyntaxHighlight(int start_row, int end_row) {
+    for (int i = start_row; i <= end_row && i < E.numrows; i++) {
+        erow *row = &E.row[i];
+
+        // Set correct highlighting array size
+        row->highlight = realloc(row->highlight, row->size);
+        // Fill array with default highlight
+        memset(row->highlight, HL_NORMAL, row->size);
     }
 }
 
@@ -583,12 +593,11 @@ void editorPrintSourceCode() {
 }
 
 void editorInitSyntaxTree() {
+    editorResetSyntaxHighlight(0, E.numrows);
+
     if (E.syntax == NULL) {
-        for (int i = 0; i < E.numrows; i++) {
-            erow *row = &E.row[i];
-            row->highlight = realloc(row->highlight, row->size);
-            memset(row->highlight, HL_NORMAL, row->size);
-        }
+        editorCalculateRenderedRows(0, E.numrows);
+
         return;
     }
 
@@ -608,8 +617,6 @@ void editorInitSyntaxTree() {
         TSLanguage *tree_sitter_rust();
         E.syntax->language = tree_sitter_rust();
         ts_parser_set_language(parser, E.syntax->language);
-    } else {
-        return;
     }
 
     int len;
@@ -624,63 +631,75 @@ void editorInitSyntaxTree() {
 
     // editorPrintSyntaxTree();
 
-    editorUpdateHighlight(0, E.numrows);
+    editorHighlightSyntaxTree(0, E.numrows);
 
     editorCalculateRenderedRows(0, E.numrows);
 }
 
-void editorUpdateSyntaxTree(int old_end_row, int old_end_column, int old_end_byte, int new_end_row, int new_end_column, int new_end_byte) {
-    if (E.syntax == NULL) {
-        return;
-    }
+TSPoint createTSPoint(int row, int col) {
+    return (TSPoint){ row, col };
+}
 
+void editorUpdateSyntaxHighlight(int old_end_row, int old_end_column, int old_end_byte, int new_end_row, int new_end_column, int new_end_byte) {
     // Select edit range, setting the lowest point as the start
     TSInputEdit edit;
 
     if (new_end_row < old_end_row || (new_end_row == old_end_row && new_end_column < old_end_column)) {
         edit.start_byte = new_end_byte;
-        edit.start_point = (TSPoint){ new_end_row, new_end_column };
+        edit.start_point = createTSPoint(new_end_row, new_end_column);
     } else {
         edit.start_byte = old_end_byte;
-        edit.start_point = (TSPoint){ old_end_row, old_end_column };
+        edit.start_point = createTSPoint(old_end_row, old_end_column);
     }
+
     edit.new_end_byte = new_end_byte;
-    edit.new_end_point = (TSPoint){ new_end_row, new_end_column };
+    edit.new_end_point = createTSPoint(new_end_row, new_end_column);
 
     edit.old_end_byte = old_end_byte;
-    edit.old_end_point = (TSPoint){ old_end_row, old_end_column };
+    edit.old_end_point = createTSPoint(old_end_row, old_end_column);
 
-    ts_tree_edit(E.syntax->tree, &edit);
 
-    int len;
-    char *source_code = editorRowsToString(&len);
+    int first_changed_row = edit.start_point.row;
+    int last_changed_row = new_end_row > old_end_row ? new_end_row : old_end_row;
 
-    // editorPrintSourceCode();
+    // Reset highlight for changed rows
+    editorResetSyntaxHighlight(first_changed_row, last_changed_row);
 
-    TSTree *tree = ts_parser_parse_string(E.syntax->parser, E.syntax->tree, source_code, len);
+    if (E.syntax != NULL) {
+        // Edit the syntax tree to keep in in sync with the edited sourcecode
+        // (see https://tree-sitter.github.io/tree-sitter/using-parsers#editing)
+        ts_tree_edit(E.syntax->tree, &edit);
 
-    uint32_t range_len;
-    TSRange *changed_range = ts_tree_get_changed_ranges(E.syntax->tree, tree, &range_len);
+        int len;
+        char *source_code = editorRowsToString(&len);
 
-    uint32_t first_changed_row = edit.start_point.row;
-    uint32_t last_changed_row = new_end_row > old_end_row ? new_end_row : old_end_row;
+        // editorPrintSourceCode();
 
-    if (range_len > 1) {
-        die("Changed range array length should always be 1 or less");
-    } else if (range_len == 1) {
-        TSRange range = changed_range[0];
+        TSTree *tree = ts_parser_parse_string(E.syntax->parser, E.syntax->tree, source_code, len);
 
-        E.syntax->tree = tree;
+        // Get change ranges
+        uint32_t range_len;
+        TSRange *changed_range = ts_tree_get_changed_ranges(E.syntax->tree, tree, &range_len);
 
-        first_changed_row = range.start_point.row;
-        last_changed_row = range.end_point.row;
+        // Since we update the syntax tree after every edit, there should be 1 or 0 change ranges.
+        // If the syntax tree does not change, there are 0 change ranges.
+        if (range_len > 1) {
+            die("Changed range array length should always be 1 or less");
+        } else if (range_len == 1) {
+            TSRange range = changed_range[0];
+
+            E.syntax->tree = tree;
+
+            first_changed_row = range.start_point.row;
+            last_changed_row = range.end_point.row;
+        }
+
+        free(changed_range);
+
+        // editorPrintSyntaxTree();
+
+        editorHighlightSyntaxTree(first_changed_row, last_changed_row);
     }
-
-    free(changed_range);
-
-    // editorPrintSyntaxTree();
-
-    editorUpdateHighlight(first_changed_row, last_changed_row);
 
     editorCalculateRenderedRows(first_changed_row, last_changed_row);
 }

@@ -40,8 +40,8 @@ void editorSelectSyntaxHighlight();
 
 void editorInitSyntaxTree();
 
-void editorUpdateSyntaxTree(int old_end_row, int old_end_column, int old_end_byte, int new_end_row, int new_end_column, int new_end_byte);
+void editorUpdateSyntaxHighlight(int old_end_row, int old_end_column, int old_end_byte, int new_end_row, int new_end_column, int new_end_byte);
 
-void editorUpdateHighlight();
+void editorHighlightSyntaxTree();
 
 #endif

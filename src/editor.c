@@ -118,7 +118,7 @@ void editorRowInsertChar(erow *row, int at, char c) {
 
     int old_end_byte = rowColPointToBytePoint(row->index, at);
     int new_end_byte = old_end_byte + 1;
-    editorUpdateSyntaxTree(row->index, at, old_end_byte, row->index, at + 1, new_end_byte);
+    editorUpdateSyntaxHighlight(row->index, at, old_end_byte, row->index, at + 1, new_end_byte);
 
     E.dirty = true;
 }
@@ -151,7 +151,7 @@ void editorRowDeleteChar(erow *row, int at) {
 
     int old_end_byte = rowColPointToBytePoint(row->index, at + 1);
     int new_end_byte = old_end_byte - 1;
-    editorUpdateSyntaxTree(row->index, at + 1, old_end_byte, row->index, at, new_end_byte);
+    editorUpdateSyntaxHighlight(row->index, at + 1, old_end_byte, row->index, at, new_end_byte);
 
     E.dirty = true;
 }
@@ -170,7 +170,7 @@ void editorClearRowToStart() {
 
     int old_end_byte = rowColPointToBytePoint(E.cy, E.cx);
     int new_end_byte = rowColPointToBytePoint(E.cy, 0);
-    editorUpdateSyntaxTree(E.cy, E.cx, old_end_byte, E.cy, 0, new_end_byte);
+    editorUpdateSyntaxHighlight(E.cy, E.cx, old_end_byte, E.cy, 0, new_end_byte);
 
     E.dirty = true;
     E.cx = 0;
@@ -214,7 +214,7 @@ void editorInsertNewline() {
 
     int old_end_byte = rowColPointToBytePoint(E.cy, E.cx);
     int new_end_byte = rowColPointToBytePoint(E.cy + 1, 0);
-    editorUpdateSyntaxTree(E.cy, E.cx, old_end_byte, E.cy + 1, 0, new_end_byte);
+    editorUpdateSyntaxHighlight(E.cy, E.cx, old_end_byte, E.cy + 1, 0, new_end_byte);
 
     E.cy++;
     E.cx = 0;
@@ -251,7 +251,7 @@ void editorDeleteChar() {
         editorDeleteRow(E.cy);
 
         int new_end_byte = rowColPointToBytePoint(E.cy - 1, E.cx);
-        editorUpdateSyntaxTree(E.cy, 0, old_end_byte, E.cy - 1, E.cx, new_end_byte);
+        editorUpdateSyntaxHighlight(E.cy, 0, old_end_byte, E.cy - 1, E.cx, new_end_byte);
 
         E.cy--;
     }

@@ -83,7 +83,8 @@ void editorScroll() {
 }
 
 /*
- * Determine what characters to render based on the characters in each row
+ * Determine what characters to render based on the characters in each row.
+ * Makes sure the highlighting still works on differently rendered characters.
  */
 void editorCalculateRenderedRows(int start_row, int end_row) {
     for (int r = start_row; r <= end_row && r < E.numrows; r++) {
@@ -120,7 +121,7 @@ void editorCalculateRenderedRows(int start_row, int end_row) {
             if (c == '\t') {
                 do {
                     renderHighlight[index] = h;
-                    row->render[index++] = ' ';
+                    row->render[index++] = '>';
                 } while (index % TAB_SIZE != 0);
             }
             // Render control characters with a preceding '^'
