@@ -5,20 +5,21 @@ x add highlighting for languages
     x Python
     x Rust
     x Haskell
-~ add treesitter support
+x add treesitter support
     x parse (c) syntax into TSTree
     x Figure out how to properly highlight differently rendered characters
-    ~ port old languages
+    x port old languages
         x C
         x Python
         x Rust
-        - Haskell
+        x Haskell
     x update TSTree on editor changes
         x editorInsertChar
         x editorDeleteChar
             x middle of line (editorRowDeleteChar)
             x start of line (editorRowAppendString, editorDeleteRow)
         x editorClearRowToStart
+- fix multi-line comment highlight disappearing bug
 - add selecting text
     - select blocks
     - edit operations on blocks
