@@ -34,7 +34,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
     }
 
     const char *type = ts_node_type(root);
-    // printf("node type: \t'%s'\r\n", type);
+    printf("node type: \t'%s'\r\n", type);
 
     // uint32_t start_byte = ts_node_start_byte(root);
     // uint32_t end_byte = ts_node_end_byte(root);
@@ -42,7 +42,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
 
     uint32_t child_count = ts_node_child_count(root);
 
-    // printf("%d child(ren)\r\n", child_count);
+    printf("%d child(ren)\r\n", child_count);
 
     TSPoint start = ts_node_start_point(root);
     TSPoint end = ts_node_end_point(root);
@@ -77,7 +77,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
         highlight = HL_STRING;
     }
     else if (!strcmp(type, "escape_sequence")) {
-        highlight = HL_SYNTAX;
+        highlight = HL_SYNTAX1;
     }
     // comment
     else if (inStringArray(type, (char*[]) { "comment", "line_comment", NULL })) {
@@ -85,10 +85,10 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
     }
     // syntax separators
     else if (inStringArray(type, E.syntax->syntax1)) {
-        highlight = HL_SYNTAX;
+        highlight = HL_SYNTAX1;
     }
     else if (inStringArray(type, E.syntax->syntax2)) {
-        highlight = HL_KEYWORD1;
+        highlight = HL_SYNTAX2;
     }
     // unary expression
     else if (inStringArray(type, (char*[]) { "unary_expression", "pointer_expression", "pointer_declarator", "abstract_pointer_declarator", NULL })) {
@@ -96,7 +96,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
         end.column = start.column + 1;
     }
     else if (!strcmp(type, "null")) {
-        highlight = HL_CONSTANT;
+        highlight = HL_SYNTAX2;
     }
 
     /*
@@ -150,7 +150,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
         memcpy(word, &row->chars[start.column], len);
         word[len] = '\0';
 
-        // printf("WORD:%s\r\n", word);
+        printf("WORD:%s\r\n", word);
 
         if (inStringArray(word, E.syntax->keyword2)) {
             highlight = HL_KEYWORD2;
@@ -249,7 +249,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
 
         // use wildcard * (Rust)
         else if (!strcmp(type, "use_wildcard")) {
-            highlight = HL_CONSTANT;
+            highlight = HL_NORMAL;
         }
 
         // enum item
@@ -309,7 +309,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
 
                 // If current node is a nested scoped identifier, highlight whole node
                 if (inStringArray(parent_type, (char*[]) { "scoped_identifier", "scoped_use_list", NULL })) {
-                    highlight = HL_COMMENT;
+                    highlight = HL_FUNCTION;
                 }
                 // If parent is a use wildcard, determine highlight based on case
                 else if (!strcmp(parent_type, "use_wildcard")) {
@@ -324,7 +324,9 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
                         // Uppercase
                         highlight = HL_KEYWORD2;
                     } else {
-                        highlight = HL_COMMENT;
+                        // Lowercase
+                        highlight = HL_FUNCTION;
+                        // highlight = HL_NORMAL;
                     }
                 }
                 // Otherwise, highlight both the path and name (if not a function)
@@ -339,10 +341,11 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
                         erow *path_row = &E.row[path_start.row];
 
                         for (uint32_t c = path_start.column; c < path_end.column; c++) {
-                            path_row->highlight[c] = HL_COMMENT;
+                            path_row->highlight[c] = HL_FUNCTION;
                         }
                     }
 
+                    // if not a function
                     if (strcmp(parent_type, "call_expression")) {
                         field_name = "name";
                         TSNode name_child = ts_node_child_by_field_name(root, field_name, strlen(field_name));
@@ -353,8 +356,9 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
                         if ((name_start.row >= start_row && name_start.row <= end_row) || (end.row >= start_row && end.row <= end_row)) {
                             erow *name_row = &E.row[name_start.row];
 
+                            int hl = islower(name_row->chars[name_start.column]) ? HL_NORMAL : HL_KEYWORD2;
                             for (uint32_t c = name_start.column; c < name_end.column; c++) {
-                                name_row->highlight[c] = HL_KEYWORD2;
+                                name_row->highlight[c] = hl;
                             }
                         }
                     }
@@ -386,17 +390,28 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
     }
 
     // Python
-    if (!strcmp(E.syntax->filetype, "Python")) {
+    else if (!strcmp(E.syntax->filetype, "Python")) {
         // except (Python)
         if (!strcmp(type, "except_clause")) {
-            highlight = HL_KEYWORD2;
             TSNode except_child = ts_node_child(root, 1);
 
             if (!ts_node_is_null(except_child)) {
+                highlight = HL_KEYWORD2;
                 start = ts_node_start_point(except_child);
                 end = ts_node_end_point(except_child);
             }
         }
+
+        if (!strcmp(type, "keyword_argument")) {
+            TSNode keyword_arg_child = ts_node_child(root, 0);
+
+            if (!ts_node_is_null(keyword_arg_child)) {
+                highlight = HL_SYNTAX1;
+                start = ts_node_start_point(keyword_arg_child);
+                end = ts_node_end_point(keyword_arg_child);
+            }
+        }
+
 
         /*
          * Complex
@@ -444,17 +459,112 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
     }
 
     // C
-    if (!strcmp(E.syntax->filetype, "c")) {
+    else if (!strcmp(E.syntax->filetype, "c")) {
+        /*
+         * Direct
+         */
+
         // fields
         if (!strcmp(type, "field_identifier")) {
             highlight = HL_FIELD;
         }
     }
 
+    else if (!strcmp(E.syntax->filetype, "Haskell")) {
+        /*
+         * Direct
+         */
+
+        // pragma
+        if (!strcmp(type, "pragma")) {
+            highlight = HL_KEYWORD1;
+        }
+
+        // import path
+        else if (!strcmp(type, "module")) {
+            highlight = HL_FIELD;
+        }
+
+        // import item
+        else if (!strcmp(type, "import_item")) {
+            highlight = HL_NORMAL;
+        }
+
+        // type
+        else if (!strcmp(type, "constructor")) {
+            highlight = HL_FIELD;
+        }
+
+        // char
+        else if (!strcmp(type, "char")) {
+            highlight = HL_STRING;
+        }
+
+        /*
+         * Child
+         */
+
+        // function (Haskell)
+        else if (!strcmp(type, "function")) {
+            TSNode function_name_child = ts_node_child(root, 0);
+
+            if (!ts_node_is_null(function_name_child)) {
+                highlight = HL_FUNCTION;
+                start = ts_node_start_point(function_name_child);
+                end = ts_node_end_point(function_name_child);
+            }
+        }
+
+        // type signature
+        else if (!strcmp(type, "signature")) {
+            TSNode signature_name_child = ts_node_child(root, 0);
+
+            if (!ts_node_is_null(signature_name_child)) {
+                highlight = HL_KEYWORD2;
+                start = ts_node_start_point(signature_name_child);
+                end = ts_node_end_point(signature_name_child);
+            }
+        }
+        /*
+         * Complex
+         */
+
+        // import
+        else if (!strcmp(type, "import")) {
+            highlight = HL_FUNCTION;
+            end.column = strlen("import");
+        }
+
+        // type
+        else if (!strcmp(type, "type")) {
+            TSNode sibling = ts_node_next_sibling(root);
+
+            if (!ts_node_is_null(sibling)) {
+                const char *sibling_type = ts_node_type(sibling);
+
+                if (!strcmp(sibling_type, "type")) {
+                    highlight = HL_FUNCTION;
+                }
+            } else {
+                highlight = HL_KEYWORD2;
+            }
+        }
+
+        // else if (!strcmp(type, "type_alias")) {
+            // printf("start: [%d, %d]\r\n", start.row, start.column);
+            // end.column = 4;
+            // highlight = HL_FUNCTION;
+        // }
+    }
+
+    if (!strcmp(type, "type_alias")) {
+        printf("selected highlight: %d\r\n", highlight);
+    }
+
     // Set highlight
     if (highlight != HL_NORMAL) {
-        // printf("start [%d, %d]\r\n", start.row, start.column);
-        // printf("end [%d, %d]\r\n", end.row, end.column);
+        printf("start [%d, %d]\r\n", start.row, start.column);
+        printf("end [%d, %d]\r\n", end.row, end.column);
 
         if ((start.row >= start_row && start.row <= end_row) || (end.row >= start_row && end.row <= end_row)) {
             erow *row = &E.row[start.row];
@@ -490,7 +600,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
 void editorHighlightSyntaxTree(int start_row, int end_row) {
     TSNode root = ts_tree_root_node(E.syntax->tree);
 
-    // printf("UPDATE:\r\n");
+    printf("UPDATE:\r\n");
 
     editorHighlightSubtree(root, start_row, end_row);
 }
@@ -503,9 +613,9 @@ int editorSyntaxToColor(int hl) {
     switch (hl) {
         case HL_COMMENT:
         case HL_MLCOMMENT:
-            return 35; // Magenta
+            return 90; // Grey
         case HL_KEYWORD1:
-            return 34; // Blue
+            return 35; // Magenta
         case HL_KEYWORD2:
             return 33; // Yellow
         case HL_STRING:
@@ -514,8 +624,10 @@ int editorSyntaxToColor(int hl) {
             return 31; // Red
         case HL_FUNCTION:
             return 34; // Blue
-        case HL_SYNTAX:
+        case HL_SYNTAX1:
             return 31; // Red
+        case HL_SYNTAX2:
+            return 36; // Cyan
         case HL_CONSTANT:
             return 31; // Red
         case HL_FIELD:
@@ -562,11 +674,6 @@ void editorSelectSyntaxHighlight() {
             if ((is_extension && extension && !strcmp(extension, s->filematch[j])) ||
                     (!is_extension && strstr(E.filename, s->filematch[j]))) {
                 E.syntax = s;
-
-                // Rehighlight file
-                // for (int filerow = 0; filerow < E.numrows; filerow++) {
-                    // editorUpdateSyntax(&E.row[filerow]);
-                // }
 
                 return;
             }
@@ -617,6 +724,10 @@ void editorInitSyntaxTree() {
         TSLanguage *tree_sitter_rust();
         E.syntax->language = tree_sitter_rust();
         ts_parser_set_language(parser, E.syntax->language);
+    } else if (!strcmp(E.syntax->filetype, "Haskell")) {
+        TSLanguage *tree_sitter_haskell();
+        E.syntax->language = tree_sitter_haskell();
+        ts_parser_set_language(parser, E.syntax->language);
     }
 
     int len;
@@ -629,7 +740,7 @@ void editorInitSyntaxTree() {
     E.syntax->tree = tree;
     E.syntax->parser = parser;
 
-    // editorPrintSyntaxTree();
+    editorPrintSyntaxTree();
 
     editorHighlightSyntaxTree(0, E.numrows);
 
@@ -696,7 +807,7 @@ void editorUpdateSyntaxHighlight(int old_end_row, int old_end_column, int old_en
 
         free(changed_range);
 
-        // editorPrintSyntaxTree();
+        editorPrintSyntaxTree();
 
         editorHighlightSyntaxTree(first_changed_row, last_changed_row);
     }

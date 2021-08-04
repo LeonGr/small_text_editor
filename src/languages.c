@@ -32,14 +32,16 @@ char *Rust_HL_keyword2[] = { "false", "true", "None", "Some", "Ok", "Err", NULL 
 char *Rust_HL_syntax1[] = { "(", ")", "{", "}", "[", "]", "<", ">", ";", ".", "::", "&", NULL };
 char *Rust_HL_syntax2[] = { "?", ":", "->", "=>", "#", NULL };
 
-// /* Haskell highlighting */
-// 
-// // Haskell file extensions
-// char *Haskell_HL_extensions[] = { ".hs", NULL };
-// char *Haskell_HL_keywords[] = {
-//     "as", "of", "case", "class", "data", "data family", "data instance", "default", "deriving", "deriving instance", "do", "forall", "foreign", "hiding", "if", "then", "else", "import", "infix", "infixl", "infixr", "instance", "let", "in", "mdo", "module", "newtype", "proc", "qualified", "rec", "type", "type family", "type instance", "where",
-//     "True|", "False|", "String|", "Char|", "Read|", "Show|", "Eq|", "Ord|", "Enum|", "Bounded|", "IO|", "Maybe|", "Either|", "Ordering|", "Functor|", "Monad|", "Num|", "Complex|", "Real|", "Integral|", "Fractional|", "Floating|", "Int|", "Integer|", "Double|", "Rational|", "Ratio|", "RealFloat|", "RealFrac|", NULL
-// };
+/* Haskell highlighting */
+
+// Haskell file extensions
+char *Haskell_HL_extensions[] = { ".hs", NULL };
+char *Haskell_HL_keyword1[] = {
+    "as", "of", "case", "class", "data", "data family", "data instance", "default", "deriving", "deriving instance", "do", "forall", "foreign", "hiding", "if", "then", "else", "import", "infix", "infixl", "infixr", "instance", "let", "in", "mdo", "module", "newtype", "proc", "qualified", "rec", "type", "type family", "type instance", "where", NULL };
+char *Haskell_HL_keyword2[] = { NULL };
+char *Haskell_HL_syntax1[] = { "(", ")", "{", "}", "[", "]", "<", ">", ";", ".", "::", "&", "|", ":", NULL };
+char *Haskell_HL_syntax2[] = { "?", "<-", "->", "=>", "#", "@", NULL };
+    // "True|", "False|", "String|", "Char|", "Read|", "Show|", "Eq|", "Ord|", "Enum|", "Bounded|", "IO|", "Maybe|", "Either|", "Ordering|", "Functor|", "Monad|", "Num|", "Complex|", "Real|", "Integral|", "Fractional|", "Floating|", "Int|", "Integer|", "Double|", "Rational|", "Ratio|", "RealFloat|", "RealFrac|", NULL
 
 /*
  * highlight database
@@ -71,15 +73,16 @@ struct editorSyntax HLDB[] = {
         Rust_HL_syntax1,
         Rust_HL_syntax2,
         NULL, NULL, NULL
+    },
+    {
+        "Haskell",
+        Haskell_HL_extensions,
+        Haskell_HL_keyword1,
+        Haskell_HL_keyword2,
+        Haskell_HL_syntax1,
+        Haskell_HL_syntax2,
+        NULL, NULL, NULL
     }
-    // {
-        // "Haskell",
-        // Haskell_HL_extensions,
-        // Haskell_HL_keywords,
-        // "--", "{-", "-}",
-        // HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS,
-        // NULL, NULL, NULL
-    // }
 };
 
 #define NUM_HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))

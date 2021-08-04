@@ -17,7 +17,8 @@ enum editorHighlight {
     HL_NUMBER,
     HL_MATCH,
     HL_FUNCTION,
-    HL_SYNTAX,
+    HL_SYNTAX1,
+    HL_SYNTAX2,
     HL_CONSTANT,
     HL_FIELD,
 };
