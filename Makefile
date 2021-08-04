@@ -7,7 +7,7 @@ DEP_DIR := lib
 
 CPPFLAGS  = -MMD -MP -MF $(@:$(OBJ_DIR)/%.o=$(DEP_DIR)/%.d)
 CFLAGS   := -Wall -Wextra -pedantic -ggdb -pthread
-CXXFLAGS := -std=c++11 $(CFLAGS)
+CXXFLAGS := -std=c++17 $(CFLAGS)
 LDFLAGS  := -pthread
 
 SOURCE := $(foreach ext, $(EXT), $(wildcard $(SRC_DIR)/*.$(ext)))
