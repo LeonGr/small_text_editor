@@ -22,7 +22,9 @@ x add treesitter support
 x fix multi-line comment highlight disappearing bug
 ~ more keyboard shortcuts
     x Ctrl-w: delete word
-    - Ctrl + arrows: jump words
+    ~ Ctrl + arrows: jump words
+        x left
+        - right
 - support line wrapping
 - add selecting text
     - select blocks
