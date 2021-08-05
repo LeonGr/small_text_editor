@@ -260,6 +260,47 @@ void editorDeleteChar() {
     E.savedCx = E.cx;
 }
 
+
+void editorDeleteWord() {
+    erow *row = &E.row[E.cy];
+
+    char beforeCursor[E.cx];
+    memcpy(beforeCursor, row->chars, E.cx);
+    beforeCursor[E.cx] = '\0';
+
+    int last_separator_index = -1;
+    for (int i = E.cx - 1; i >= 0; i--) {
+        char c = beforeCursor[i];
+
+        if (isSeparator(c)) {
+            last_separator_index = i;
+            break;
+        }
+    }
+
+    int newPos;
+    if (last_separator_index == -1) {
+        newPos = 0;
+    } else if (E.cx - 1 == last_separator_index) {
+        newPos = last_separator_index;
+    } else {
+        newPos = last_separator_index + 1;
+    }
+
+    memmove(&row->chars[newPos], &row->chars[E.cx], row->size - E.cx);
+    row->size -= E.cx - newPos;
+
+    int old_end_byte = rowColPointToBytePoint(E.cy, E.cx);
+    int new_end_byte = rowColPointToBytePoint(E.cy, newPos);
+    editorUpdateSyntaxHighlight(E.cy, E.cx, old_end_byte, E.cy, newPos, new_end_byte);
+
+    E.dirty = true;
+    E.cx = newPos;
+
+    // Reset saved position
+    E.savedCx = E.cx;
+}
+
 /*** append buffer ***/
 
 /*

@@ -120,6 +120,8 @@ void editorInsertNewline();
  */
 void editorDeleteChar();
 
+void editorDeleteWord();
+
 struct abuf {
     char *b;
     int len;

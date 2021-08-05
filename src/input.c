@@ -227,6 +227,10 @@ void editorProcessKeypress() {
             editorClearRowToStart();
             break;
 
+        case CTRL_KEY('w'):
+            editorDeleteWord();
+            break;
+
         // Move to top or bottom of screen with PAGE_UP, PAGE_DOWN
         case PAGE_UP:
         case PAGE_DOWN:
