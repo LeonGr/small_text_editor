@@ -19,7 +19,8 @@ x add treesitter support
             x middle of line (editorRowDeleteChar)
             x start of line (editorRowAppendString, editorDeleteRow)
         x editorClearRowToStart
-- fix multi-line comment highlight disappearing bug
+x fix multi-line comment highlight disappearing bug
+- support line wrapping
 - add selecting text
     - select blocks
     - edit operations on blocks
