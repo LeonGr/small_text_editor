@@ -41,7 +41,6 @@ char *Haskell_HL_keyword1[] = {
 char *Haskell_HL_keyword2[] = { NULL };
 char *Haskell_HL_syntax1[] = { "(", ")", "{", "}", "[", "]", "<", ">", ";", ".", "::", "&", "|", ":", NULL };
 char *Haskell_HL_syntax2[] = { "?", "<-", "->", "=>", "#", "@", NULL };
-    // "True|", "False|", "String|", "Char|", "Read|", "Show|", "Eq|", "Ord|", "Enum|", "Bounded|", "IO|", "Maybe|", "Either|", "Ordering|", "Functor|", "Monad|", "Num|", "Complex|", "Real|", "Integral|", "Fractional|", "Floating|", "Int|", "Integer|", "Double|", "Rational|", "Ratio|", "RealFloat|", "RealFrac|", NULL
 
 /*
  * highlight database

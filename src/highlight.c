@@ -337,7 +337,9 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
                     TSPoint path_start = ts_node_start_point(path_child);
                     TSPoint path_end = ts_node_end_point(path_child);
 
-                    if ((path_start.row >= start_row && path_start.row <= end_row) || (end.row >= start_row && end.row <= end_row)) {
+                    // check if node is in edit range
+                    if (!(path_start.row < start_row && end.row < start_row) && 
+                        !(path_start.row > end_row && end.row > end_row)) {
                         erow *path_row = &E.row[path_start.row];
 
                         for (uint32_t c = path_start.column; c < path_end.column; c++) {
@@ -353,7 +355,9 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
                         TSPoint name_start = ts_node_start_point(name_child);
                         TSPoint name_end = ts_node_end_point(name_child);
 
-                        if ((name_start.row >= start_row && name_start.row <= end_row) || (end.row >= start_row && end.row <= end_row)) {
+                        // check if node is in edit range
+                        if (!(name_start.row < start_row && end.row < start_row) &&
+                            !(name_start.row > end_row && end.row > end_row)) {
                             erow *name_row = &E.row[name_start.row];
 
                             int hl = islower(name_row->chars[name_start.column]) ? HL_NORMAL : HL_KEYWORD2;
@@ -549,16 +553,6 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
                 highlight = HL_KEYWORD2;
             }
         }
-
-        // else if (!strcmp(type, "type_alias")) {
-            // printf("start: [%d, %d]\r\n", start.row, start.column);
-            // end.column = 4;
-            // highlight = HL_FUNCTION;
-        // }
-    }
-
-    if (!strcmp(type, "type_alias")) {
-        printf("selected highlight: %d\r\n", highlight);
     }
 
     // Set highlight
@@ -566,7 +560,8 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
         printf("start [%d, %d]\r\n", start.row, start.column);
         printf("end [%d, %d]\r\n", end.row, end.column);
 
-        if ((start.row >= start_row && start.row <= end_row) || (end.row >= start_row && end.row <= end_row)) {
+        if (!(start.row < start_row && end.row < start_row) &&
+            !(start.row > end_row && end.row > end_row)) {
             erow *row = &E.row[start.row];
 
             // node spans multiple lines
@@ -740,7 +735,7 @@ void editorInitSyntaxTree() {
     E.syntax->tree = tree;
     E.syntax->parser = parser;
 
-    editorPrintSyntaxTree();
+    // editorPrintSyntaxTree();
 
     editorHighlightSyntaxTree(0, E.numrows);
 
@@ -773,9 +768,6 @@ void editorUpdateSyntaxHighlight(int old_end_row, int old_end_column, int old_en
     int first_changed_row = edit.start_point.row;
     int last_changed_row = new_end_row > old_end_row ? new_end_row : old_end_row;
 
-    // Reset highlight for changed rows
-    editorResetSyntaxHighlight(first_changed_row, last_changed_row);
-
     if (E.syntax != NULL) {
         // Edit the syntax tree to keep in in sync with the edited sourcecode
         // (see https://tree-sitter.github.io/tree-sitter/using-parsers#editing)
@@ -807,9 +799,15 @@ void editorUpdateSyntaxHighlight(int old_end_row, int old_end_column, int old_en
 
         free(changed_range);
 
-        editorPrintSyntaxTree();
+        // editorPrintSyntaxTree();
+
+        // Reset highlight for changed rows
+        editorResetSyntaxHighlight(first_changed_row, last_changed_row);
 
         editorHighlightSyntaxTree(first_changed_row, last_changed_row);
+    } else {
+        // Reset highlight for changed rows
+        editorResetSyntaxHighlight(first_changed_row, last_changed_row);
     }
 
     editorCalculateRenderedRows(first_changed_row, last_changed_row);

@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
     editorSetStatusMessage("HELP: Ctrl-s = save, Ctrl-d = quit, Ctrl-f = search");
 
     while (true) {
-        // editorRefreshScreen();
+        editorRefreshScreen();
         editorProcessKeypress();
     }
 
