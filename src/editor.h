@@ -76,6 +76,11 @@ typedef struct editorConfig {
 bool isSeparator(int c);
 
 /*
+ * Returns the index of the first separator in towards `direction`
+ */
+int getSeparatorIndex(int direction);
+
+/*
  * Append `len` characters of chars `s` to editor
  */
 void editorInsertRow(int at, char *s, size_t len);

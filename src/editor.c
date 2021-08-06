@@ -1,3 +1,4 @@
+#include "input.h"
 #include "editor.h"
 #include "highlight.h"
 #include "terminal.h"
@@ -30,6 +31,89 @@ uint32_t rowColPointToBytePoint(int row, int column) {
  */
 bool isSeparator(int c) {
     return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];:\"", c) != NULL;
+}
+
+int getSeparatorIndex(int direction) {
+    erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+
+    if (row == NULL) {
+        return 0;
+    }
+
+    switch (direction) {
+        case LEFT:
+            {
+                erow *row = &E.row[E.cy];
+
+                // find first separator character between column 0 and the current column
+                int last_separator_index = -1;
+                for (int i = E.cx - 1; i >= 0; i--) {
+                    char c = row->chars[i];
+
+                    if (isSeparator(c)) {
+                        last_separator_index = i;
+                        break;
+                    }
+                }
+
+                if (last_separator_index == -1) {
+                    return 0;
+                } else if (E.cx - 1 == last_separator_index) {
+                    // If we are next to a separator, delete until the next separator instead
+                    int start = last_separator_index;
+                    // find first separator character between column 0 and the adjacent separator
+                    int last_separator_index = -1;
+                    for (int i = start - 1; i >= 0; i--) {
+                        char c = row->chars[i];
+
+                        if (isSeparator(c)) {
+                            last_separator_index = i;
+                            break;
+                        }
+                    }
+                    return last_separator_index + 1;
+                } else {
+                    return last_separator_index + 1;
+                }
+            }
+            break;
+        case RIGHT:
+            {
+                // find first separator character between column row->size and the current column
+                int first_separator_index = row->size + 1;
+                for (int i = E.cx + 1; i < row->size; i++) {
+                    char c = row->chars[i];
+
+                    if (isSeparator(c)) {
+                        first_separator_index = i + 1;
+                        break;
+                    }
+                }
+
+                if (first_separator_index == row->size + 1) {
+                    return row->size;
+                } else if (E.cx + 1 == first_separator_index) {
+                    // If we are next to a separator, delete until the next separator instead
+                    int start = first_separator_index;
+                    // find first separator character between column row->size and the adjacent separator
+                    int first_separator_index = row->size + 1;
+                    for (int i = start + 1; i < row->size; i++) {
+                        char c = row->chars[i];
+
+                        if (isSeparator(c)) {
+                            first_separator_index = i + 1;
+                            break;
+                        }
+                    }
+                    return first_separator_index;
+                } else {
+                    return first_separator_index;
+                }
+            }
+            break;
+        default:
+            return 0;
+    }
 }
 
 /*
@@ -264,41 +348,7 @@ void editorDeleteChar() {
 void editorDeleteWord() {
     erow *row = &E.row[E.cy];
 
-    char beforeCursor[E.cx];
-    memcpy(beforeCursor, row->chars, E.cx);
-    beforeCursor[E.cx] = '\0';
-
-    // find first separator character between column 0 and the current column
-    int last_separator_index = -1;
-    for (int i = E.cx - 1; i >= 0; i--) {
-        char c = beforeCursor[i];
-
-        if (isSeparator(c)) {
-            last_separator_index = i;
-            break;
-        }
-    }
-
-    int newPos;
-    if (last_separator_index == -1) {
-        newPos = 0;
-    } else if (E.cx - 1 == last_separator_index) {
-        // If we are next to a separator, delete until the next separator instead
-        newPos = last_separator_index;
-        // find first separator character between column 0 and the adjacent separator
-        int last_separator_index = -1;
-        for (int i = newPos - 1; i >= 0; i--) {
-            char c = beforeCursor[i];
-
-            if (isSeparator(c)) {
-                last_separator_index = i;
-                break;
-            }
-        }
-        newPos = last_separator_index + 1;
-    } else {
-        newPos = last_separator_index + 1;
-    }
+    int newPos = getSeparatorIndex(LEFT);
 
     memmove(&row->chars[newPos], &row->chars[E.cx], row->size - E.cx);
     row->size -= E.cx - newPos;

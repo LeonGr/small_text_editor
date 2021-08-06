@@ -182,43 +182,7 @@ void editorJumpWord(int direction) {
                     return;
                 }
 
-                char beforeCursor[E.cx];
-                memcpy(beforeCursor, row->chars, E.cx);
-                beforeCursor[E.cx] = '\0';
-
-                // find first separator character between column 0 and the current column
-                int last_separator_index = -1;
-                for (int i = E.cx - 1; i >= 0; i--) {
-                    char c = beforeCursor[i];
-
-                    if (isSeparator(c)) {
-                        last_separator_index = i;
-                        break;
-                    }
-                }
-
-                int newPos;
-                if (last_separator_index == -1) {
-                    newPos = 0;
-                } else if (E.cx - 1 == last_separator_index) {
-                    // If we are next to a separator, delete until the next separator instead
-                    newPos = last_separator_index;
-                    // find first separator character between column 0 and the adjacent separator
-                    int last_separator_index = -1;
-                    for (int i = newPos - 1; i >= 0; i--) {
-                        char c = beforeCursor[i];
-
-                        if (isSeparator(c)) {
-                            last_separator_index = i;
-                            break;
-                        }
-                    }
-                    newPos = last_separator_index + 1;
-                } else {
-                    newPos = last_separator_index + 1;
-                }
-
-                E.cx = newPos;
+                E.cx = getSeparatorIndex(LEFT);
 
                 // Reset saved position
                 E.savedCx = E.cx;
@@ -231,39 +195,7 @@ void editorJumpWord(int direction) {
                     return;
                 }
 
-                // find first separator character between column rowLen and the current column
-                int first_separator_index = rowLen + 1;
-                for (int i = E.cx + 1; i < rowLen; i++) {
-                    char c = row->chars[i];
-
-                    if (isSeparator(c)) {
-                        first_separator_index = i + 1;
-                        break;
-                    }
-                }
-
-                int newPos;
-                if (first_separator_index == rowLen + 1) {
-                    newPos = rowLen;
-                } else if (E.cx + 1 == first_separator_index) {
-                    // If we are next to a separator, delete until the next separator instead
-                    newPos = first_separator_index;
-                    // find first separator character between column rowLen and the adjacent separator
-                    int first_separator_index = rowLen + 1;
-                    for (int i = newPos + 1; i < rowLen; i++) {
-                        char c = row->chars[i];
-
-                        if (isSeparator(c)) {
-                            first_separator_index = i + 1;
-                            break;
-                        }
-                    }
-                    newPos = first_separator_index;
-                } else {
-                    newPos = first_separator_index;
-                }
-
-                E.cx = newPos;
+               E.cx = getSeparatorIndex(RIGHT);
 
                 // Reset saved position
                 E.savedCx = E.cx;
