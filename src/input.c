@@ -6,6 +6,8 @@
 #include "terminal.h"
 #include <errno.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 extern struct editorConfig E;
@@ -25,15 +27,18 @@ int editorReadKey() {
 
     // Read escape sequence
     if (c == '\x1b') {
-        char seq[3];
+        char seq[5];
 
-        if (read(STDIN_FILENO, &seq[0], 1) != 1 || read(STDIN_FILENO, &seq[1], 1) != 1) {
+        int x = read(STDIN_FILENO, &seq[0], 1);
+        int y = read(STDIN_FILENO, &seq[1], 1);
+        if (x != 1 || y != 1) {
             return '\x1b';
         }
 
         if (seq[0] == '[') {
             if (seq[1] >= '0' && seq[1] <= '9') {
-                if (read(STDIN_FILENO, &seq[2], 1) != 1) {
+                int z = read(STDIN_FILENO, &seq[2], 1);
+                if (z != 1) {
                     return '\x1b';
                 }
 
@@ -46,6 +51,21 @@ int editorReadKey() {
                         case '6': return PAGE_DOWN;
                         case '7': return HOME;
                         case '8': return END;
+                    }
+                } else if (seq[2] == ';') {
+                    int a = read(STDIN_FILENO, &seq[3], 1);
+                    int b = read(STDIN_FILENO, &seq[4], 1);
+                    if (a != 1 || b != 1) {
+                        return '\x1b';
+                    }
+
+                    // Ctrl-Left
+                    else if (seq[3] == '5' && seq[4] == 'D') {
+                        return C_LEFT;
+                    }
+
+                    else if (seq[3] == '5' && seq[4] == 'C') {
+                        return C_RIGHT;
                     }
                 }
             } else {
@@ -145,6 +165,110 @@ void editorMoveCursor(int key) {
             E.savedCx = E.cx;
         }
         E.cx = newRowLen;
+    }
+}
+
+void editorJumpWord(int direction) {
+    // Get current row using cursor position, NULL if on extra row at the end
+    erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+    int rowLen = row ? row->size : 0;
+
+    switch (direction) {
+        // Jump to next separator on C-Left
+        case C_LEFT:
+            {
+                if (E.cx == 0 && E.cy > 0) {
+                    editorMoveCursor(LEFT);
+                    return;
+                }
+
+                char beforeCursor[E.cx];
+                memcpy(beforeCursor, row->chars, E.cx);
+                beforeCursor[E.cx] = '\0';
+
+                // find first separator character between column 0 and the current column
+                int last_separator_index = -1;
+                for (int i = E.cx - 1; i >= 0; i--) {
+                    char c = beforeCursor[i];
+
+                    if (isSeparator(c)) {
+                        last_separator_index = i;
+                        break;
+                    }
+                }
+
+                int newPos;
+                if (last_separator_index == -1) {
+                    newPos = 0;
+                } else if (E.cx - 1 == last_separator_index) {
+                    // If we are next to a separator, delete until the next separator instead
+                    newPos = last_separator_index;
+                    // find first separator character between column 0 and the adjacent separator
+                    int last_separator_index = -1;
+                    for (int i = newPos - 1; i >= 0; i--) {
+                        char c = beforeCursor[i];
+
+                        if (isSeparator(c)) {
+                            last_separator_index = i;
+                            break;
+                        }
+                    }
+                    newPos = last_separator_index + 1;
+                } else {
+                    newPos = last_separator_index + 1;
+                }
+
+                E.cx = newPos;
+
+                // Reset saved position
+                E.savedCx = E.cx;
+            }
+            break;
+        case C_RIGHT:
+            {
+                if (E.cx == rowLen && E.cy < E.numrows) {
+                    editorMoveCursor(RIGHT);
+                    return;
+                }
+
+                // find first separator character between column rowLen and the current column
+                int first_separator_index = rowLen + 1;
+                for (int i = E.cx + 1; i < rowLen; i++) {
+                    char c = row->chars[i];
+
+                    if (isSeparator(c)) {
+                        first_separator_index = i + 1;
+                        break;
+                    }
+                }
+
+                int newPos;
+                if (first_separator_index == rowLen + 1) {
+                    newPos = rowLen;
+                } else if (E.cx + 1 == first_separator_index) {
+                    // If we are next to a separator, delete until the next separator instead
+                    newPos = first_separator_index;
+                    // find first separator character between column rowLen and the adjacent separator
+                    int first_separator_index = rowLen + 1;
+                    for (int i = newPos + 1; i < rowLen; i++) {
+                        char c = row->chars[i];
+
+                        if (isSeparator(c)) {
+                            first_separator_index = i + 1;
+                            break;
+                        }
+                    }
+                    newPos = first_separator_index;
+                } else {
+                    newPos = first_separator_index;
+                }
+
+                E.cx = newPos;
+
+                // Reset saved position
+                E.savedCx = E.cx;
+            }
+            break;
     }
 }
 
@@ -248,6 +372,11 @@ void editorProcessKeypress() {
         case UP:
         case RIGHT:
             editorMoveCursor(c);
+            break;
+
+        case C_LEFT:
+        case C_RIGHT:
+            editorJumpWord(c);
             break;
 
         case CTRL_KEY('l'):

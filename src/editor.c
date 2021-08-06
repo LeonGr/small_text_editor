@@ -268,6 +268,7 @@ void editorDeleteWord() {
     memcpy(beforeCursor, row->chars, E.cx);
     beforeCursor[E.cx] = '\0';
 
+    // find first separator character between column 0 and the current column
     int last_separator_index = -1;
     for (int i = E.cx - 1; i >= 0; i--) {
         char c = beforeCursor[i];
@@ -282,7 +283,19 @@ void editorDeleteWord() {
     if (last_separator_index == -1) {
         newPos = 0;
     } else if (E.cx - 1 == last_separator_index) {
+        // If we are next to a separator, delete until the next separator instead
         newPos = last_separator_index;
+        // find first separator character between column 0 and the adjacent separator
+        int last_separator_index = -1;
+        for (int i = newPos - 1; i >= 0; i--) {
+            char c = beforeCursor[i];
+
+            if (isSeparator(c)) {
+                last_separator_index = i;
+                break;
+            }
+        }
+        newPos = last_separator_index + 1;
     } else {
         newPos = last_separator_index + 1;
     }

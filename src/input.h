@@ -19,6 +19,8 @@ enum editorKey {
     END,
     PAGE_UP,
     PAGE_DOWN,
+    C_LEFT,
+    C_RIGHT,
 };
 
 /*
