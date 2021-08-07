@@ -20,18 +20,18 @@ x add treesitter support
             x start of line (editorRowAppendString, editorDeleteRow)
         x editorClearRowToStart
 x fix multi-line comment highlight disappearing bug
-~ more keyboard shortcuts
+x more keyboard shortcuts
     x Ctrl-w: delete word
-    ~ Ctrl + arrows: jump words
+    x Ctrl + arrows: jump words
         x left
-        - right
+        x right
+- add undo/redo
+    - undo
+    - redo
 - support line wrapping
 - add selecting text
     - select blocks
     - edit operations on blocks
-- add undo/redo
-    - undo
-    - redo
 - mouse support
     - click to move cursor
     - scrolling
