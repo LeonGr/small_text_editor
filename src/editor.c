@@ -33,6 +33,9 @@ bool isSeparator(int c) {
     return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];:\"", c) != NULL;
 }
 
+/*
+ * Returns the index of the first separator in towards sh: line 1: direction: command not found
+ */
 int getSeparatorIndex(int direction) {
     erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 
