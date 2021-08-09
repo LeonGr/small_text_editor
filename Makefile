@@ -6,7 +6,7 @@ OBJ_DIR := build
 DEP_DIR := lib
 
 CPPFLAGS  = -MMD -MP -MF $(@:$(OBJ_DIR)/%.o=$(DEP_DIR)/%.d)
-CFLAGS   := -Wall -Wextra -pedantic -ggdb -pthread
+CFLAGS   := -Wall -Wextra -pedantic -ggdb -pthread -lncurses
 CXXFLAGS := -std=c++17 $(CFLAGS)
 LDFLAGS  := -pthread
 
@@ -24,7 +24,7 @@ endef
 all: $(TARGET)
 
 $(TARGET): $(OBJECT)
-	$(CXX) $(LDFLAGS) $^ -o $@ ./lib/libtree-sitter.a
+	$(CXX) $(LDFLAGS) $(CXXFLAGS) $^ -o $@ ./lib/libtree-sitter.a
 
 $(foreach ext, $(EXT), $(eval $(call rule,$(ext))))
 
