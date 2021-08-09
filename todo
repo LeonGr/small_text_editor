@@ -32,9 +32,9 @@ x more keyboard shortcuts
 - add selecting text
     - select blocks
     - edit operations on blocks
-- mouse support
-    - click to move cursor
-    - scrolling
+x mouse support
+    x click to move cursor
+    x scrolling
 - add more color support
     - add more highlight groups
     - add 256-color
