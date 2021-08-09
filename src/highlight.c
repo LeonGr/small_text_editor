@@ -34,7 +34,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
     }
 
     const char *type = ts_node_type(root);
-    printf("node type: \t'%s'\r\n", type);
+    // printf("node type: \t'%s'\r\n", type);
 
     // uint32_t start_byte = ts_node_start_byte(root);
     // uint32_t end_byte = ts_node_end_byte(root);
@@ -42,7 +42,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
 
     uint32_t child_count = ts_node_child_count(root);
 
-    printf("%d child(ren)\r\n", child_count);
+    // printf("%d child(ren)\r\n", child_count);
 
     TSPoint start = ts_node_start_point(root);
     TSPoint end = ts_node_end_point(root);
@@ -150,7 +150,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
         memcpy(word, &row->chars[start.column], len);
         word[len] = '\0';
 
-        printf("WORD:%s\r\n", word);
+        // printf("WORD:%s\r\n", word);
 
         if (inStringArray(word, E.syntax->keyword2)) {
             highlight = HL_KEYWORD2;
@@ -557,8 +557,8 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
 
     // Set highlight
     if (highlight != HL_NORMAL) {
-        printf("start [%d, %d]\r\n", start.row, start.column);
-        printf("end [%d, %d]\r\n", end.row, end.column);
+        // printf("start [%d, %d]\r\n", start.row, start.column);
+        // printf("end [%d, %d]\r\n", end.row, end.column);
 
         if (!(start.row < start_row && end.row < start_row) &&
             !(start.row > end_row && end.row > end_row)) {
@@ -595,7 +595,7 @@ void editorHighlightSubtree(TSNode root, uint32_t start_row, uint32_t end_row) {
 void editorHighlightSyntaxTree(int start_row, int end_row) {
     TSNode root = ts_tree_root_node(E.syntax->tree);
 
-    printf("UPDATE:\r\n");
+    // printf("UPDATE:\r\n");
 
     editorHighlightSubtree(root, start_row, end_row);
 }

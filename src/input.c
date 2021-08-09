@@ -9,87 +9,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <ncurses.h>
 
 extern struct editorConfig E;
 
-/*
- * Continuously attempt to read and return input
- */
-int editorReadKey() {
-    int nread;
-    char c;
-
-    while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
-        if (nread == -1 && errno != EAGAIN) {
-            die("read");
-        }
-    }
-
-    // Read escape sequence
-    if (c == '\x1b') {
-        char seq[5];
-
-        int x = read(STDIN_FILENO, &seq[0], 1);
-        int y = read(STDIN_FILENO, &seq[1], 1);
-        if (x != 1 || y != 1) {
-            return '\x1b';
-        }
-
-        if (seq[0] == '[') {
-            if (seq[1] >= '0' && seq[1] <= '9') {
-                int z = read(STDIN_FILENO, &seq[2], 1);
-                if (z != 1) {
-                    return '\x1b';
-                }
-
-                if (seq[2] == '~') {
-                    switch (seq[1]) {
-                        case '1': return HOME;
-                        case '3': return DELETE;
-                        case '4': return END;
-                        case '5': return PAGE_UP;
-                        case '6': return PAGE_DOWN;
-                        case '7': return HOME;
-                        case '8': return END;
-                    }
-                } else if (seq[2] == ';') {
-                    int a = read(STDIN_FILENO, &seq[3], 1);
-                    int b = read(STDIN_FILENO, &seq[4], 1);
-                    if (a != 1 || b != 1) {
-                        return '\x1b';
-                    }
-
-                    // Ctrl-Left
-                    else if (seq[3] == '5' && seq[4] == 'D') {
-                        return C_LEFT;
-                    }
-
-                    else if (seq[3] == '5' && seq[4] == 'C') {
-                        return C_RIGHT;
-                    }
-                }
-            } else {
-                switch (seq[1]) {
-                    case 'A': return UP;
-                    case 'B': return DOWN;
-                    case 'C': return RIGHT;
-                    case 'D': return LEFT;
-                    case 'H': return HOME;
-                    case 'F': return END;
-                }
-            }
-        } else if (seq[0] == 'O') {
-            switch (seq[1]) {
-                case 'H': return HOME;
-                case 'F': return END;
-            }
-        }
-
-        return '\x1b';
-    } else {
-        return c;
-    }
-}
 /*
  * Move cursor based on pressed `key`.
  * When moving up and down the cursor will attempt to stay at the same column.
@@ -201,6 +124,119 @@ void editorJumpWord(int direction) {
                 E.savedCx = E.cx;
             }
             break;
+    }
+}
+
+void editorHandleMouseEvent(MEVENT event) {
+    // Scroll up
+    if (event.bstate & BUTTON4_PRESSED) {
+        // printw("Button4\\n");
+        if (E.row_offset > 0) {
+            E.row_offset -= 1;
+
+            if (E.cy - E.row_offset == E.screenrows) {
+                // E.cy--;
+                editorMoveCursor(UP);
+            }
+        }
+    }
+    // Scroll down
+    else if (event.bstate & BUTTON5_PRESSED) {
+        // printw("Button5\\n");
+        if (E.row_offset < E.numrows) {
+            E.row_offset += 1;
+
+            if (E.cy - E.row_offset + 1 == 0) {
+                // E.cy++;
+                editorMoveCursor(DOWN);
+            }
+        }
+    }
+    // Click
+    else {
+        // printw("x: %d, y: %d, z: %d\\\\n", event.x, event.y, event.z);
+        E.cy = event.y + E.row_offset;
+        E.cx = editorRowRxtoCx(&E.row[E.cy], event.x - E.line_nr_len);
+
+        E.savedCx = E.cx;
+    }
+}
+
+/*
+ * Continuously attempt to read and return input
+ */
+int editorReadKey() {
+    int ch;
+    ch = getch();
+
+    if (ch == KEY_MOUSE) {
+        MEVENT event;
+
+        if (getmouse(&event) == OK) {
+            editorHandleMouseEvent(event);
+        }
+
+        return '\\x1b';
+    }
+
+    switch (ch) {
+        case KEY_HOME: return HOME;
+        case KEY_DC: return DELETE;
+        case KEY_END: return END;
+        case KEY_PPAGE: return PAGE_UP;
+        case KEY_NPAGE: return PAGE_DOWN;
+        case KEY_UP: return UP;
+        case KEY_DOWN: return DOWN;
+        case KEY_LEFT: return LEFT;
+        case KEY_RIGHT: return RIGHT;
+    }
+
+    if (ch == '\\x1b') {
+        char seq[5];
+
+        int x = getch();
+        int y = getch();
+        seq[0] = x;
+        seq[1] = y;
+        if (x == ERR || y == ERR) {
+            return '\\x1b';
+        }
+
+        if (seq[0] == '[') {
+            if (seq[1] >= '0' && seq[1] <= '9') {
+                int z = getch();
+                seq[2] = z;
+                if (z == ERR) {
+                    return '\\x1b';
+                }
+
+                if (seq[2] == ';') {
+                    int a = getch();
+                    int b = getch();
+                    seq[3] = a;
+                    seq[4] = b;
+                    if (a == ERR || b == ERR) {
+                        return '\\x1b';
+                    }
+
+                    // Ctrl-Left
+                    else if (seq[3] == '5' && seq[4] == 'D') {
+                        return C_LEFT;
+                    }
+
+                    // Ctrl-Right
+                    else if (seq[3] == '5' && seq[4] == 'C') {
+                        return C_RIGHT;
+                    }
+                }
+            }
+        }
+    }
+
+    if (ch != ERR) {
+        return ch;
+    } else {
+        return '\\x1b';
     }
 }
 
