@@ -35,6 +35,9 @@ x more keyboard shortcuts
 x mouse support
     x click to move cursor
     x scrolling
+- add more treesitter support
+    - more languages
+    - more node types
 - add more color support
     - add more highlight groups
     - add 256-color
